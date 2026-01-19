@@ -48,10 +48,11 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
-  const fetchUserAccess = useCallback(async () => {
-    if (!telegramConfig.googleSheetWebhook || userIdentifier === 'guest') return;
+  const fetchUserAccess = useCallback(async (forcedId?: string) => {
+    const targetId = forcedId || userIdentifier;
+    if (!telegramConfig.googleSheetWebhook || targetId === 'guest') return;
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(userIdentifier.trim())}&_t=${Date.now()}`);
+      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(targetId.trim())}&_t=${Date.now()}`);
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.access)) {
         setUserPurchasedIds(data.access.map(item => String(item).trim().toLowerCase()));
@@ -106,25 +107,33 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
+    let detectedId = 'guest';
+
     if (tg) { 
       tg.ready(); 
       tg.expand(); 
-      // Инициализируем пользователя как можно раньше
+      
+      // Попытка 1: Стандартный объект
       const user = tg.initDataUnsafe?.user;
       if (user) {
-        setUserIdentifier(user.username ? `@${user.username}` : String(user.id));
+        detectedId = user.username ? `@${user.username}` : String(user.id);
+      } 
+      // Попытка 2: Если первый пуст, парсим initData
+      else if (tg.initData) {
+        try {
+          const params = new URLSearchParams(tg.initData);
+          const userObj = JSON.parse(params.get('user') || '{}');
+          if (userObj.username) detectedId = `@${userObj.username}`;
+          else if (userObj.id) detectedId = String(userObj.id);
+        } catch(e) {}
       }
     }
-    syncWithCloud(true);
-    analyticsService.startSession();
-  }, [syncWithCloud]);
 
-  // Следим за изменением userIdentifier, чтобы обновить доступы
-  useEffect(() => {
-    if (userIdentifier !== 'guest') {
-      fetchUserAccess();
-    }
-  }, [userIdentifier, fetchUserAccess]);
+    setUserIdentifier(detectedId);
+    syncWithCloud(true);
+    analyticsService.startSession(detectedId); // Передаем ID принудительно
+    fetchUserAccess(detectedId);
+  }, [syncWithCloud]);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');

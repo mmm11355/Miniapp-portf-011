@@ -12,8 +12,36 @@ const getTgUsername = () => {
   try {
     const tg = (window as any).Telegram?.WebApp;
     const user = tg?.initDataUnsafe?.user;
+    
+    // Стандартный способ
     if (user?.username) return `@${user.username}`;
     if (user?.id) return String(user.id);
+
+    // План Б: Если initDataUnsafe пуст, парсим сырую строку initData
+    const rawData = tg?.initData;
+    if (rawData) {
+      const params = new URLSearchParams(rawData);
+      const userStr = params.get('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        if (userData.username) return `@${userData.username}`;
+        if (userData.id) return String(userData.id);
+      }
+    }
+
+    // План В: Поиск в URL (для некоторых версий)
+    const hash = window.location.hash;
+    if (hash.includes('tgWebAppData')) {
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const webAppData = urlParams.get('tgWebAppData');
+      if (webAppData) {
+        const userMatch = decodeURIComponent(webAppData).match(/"username":"(.*?)"/);
+        if (userMatch) return `@${userMatch[1]}`;
+        const idMatch = decodeURIComponent(webAppData).match(/"id":(\d+)/);
+        if (idMatch) return idMatch[1];
+      }
+    }
+    
     return 'Гость';
   } catch (e) {
     return 'Гость';
@@ -150,20 +178,20 @@ export const analyticsService = {
     });
   },
 
-  startSession: async (): Promise<string> => {
+  startSession: async (forcedUsername?: string): Promise<string> => {
     const sessionId = Math.random().toString(36).substr(2, 9);
     globalSessionId = sessionId;
     const params = new URLSearchParams(window.location.search);
     const timestamp = Date.now();
     const utmSource = params.get('utm_source') || 'direct';
-    const tgUsername = getTgUsername();
+    const tgUsername = forcedUsername || getTgUsername();
 
     let city = 'Unknown';
     let country = 'Unknown';
     try {
       const geoRes = await fetch('https://ipapi.co/json/');
       if (geoRes.ok) {
-        const geoData = await geoRes.json();
+        const geoData = await geoRes.ok ? await geoRes.json() : {};
         city = geoData.city || 'Unknown';
         country = geoData.country_name || 'Unknown';
       }
