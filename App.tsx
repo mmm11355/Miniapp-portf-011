@@ -121,7 +121,6 @@ const App: React.FC = () => {
   const portfolioItems = useMemo(() => products.filter(p => p.section === 'portfolio'), [products]);
   const bonuses = useMemo(() => products.filter(p => p.section === 'bonus'), [products]);
   
-  // ЛОГИКА: Показываем ТОЛЬКО те товары, на которые у пользователя есть явный ID доступа в таблице
   const purchasedProducts = useMemo(() => {
     return products.filter(p => 
       userPurchasedIds.includes(String(p.id)) || 
@@ -214,33 +213,33 @@ const App: React.FC = () => {
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
       {view === 'home' && (
-        <div className="space-y-8 text-center py-4 animate-in fade-in duration-700">
-          <div className="relative inline-block">
+        <div className="space-y-4 text-center py-2 animate-in fade-in duration-700">
+          <div className="relative inline-block mt-2">
             <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full scale-125" />
-            <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-36 h-36 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" />
+            <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-28 h-28 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" />
           </div>
           
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Ольга Антонова</h1>
-            <p className="text-sm font-black text-indigo-600 uppercase tracking-widest leading-none">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
+            <p className="text-[12px] font-black text-indigo-600 uppercase tracking-widest leading-none">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-4 mx-2">
-             <div className="flex items-center gap-4 text-[11px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
-             <div className="flex items-center gap-4 text-[11px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
-             <div className="flex items-center gap-4 text-[11px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
-             <div className="flex items-center gap-4 text-[11px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-50 text-left space-y-1.5 mx-2">
+             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><Trophy size={16} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
+             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><Award size={16} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
+             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><BriefcaseIcon size={16} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
+             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={16} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
           </div>
 
-          <div className="px-2">
-            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
+          <div className="px-2 pt-1">
+            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-5 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               <div className="flex flex-col items-start relative z-10">
                 <span className="text-[14px] font-black uppercase tracking-widest">Нужна помощь?</span>
-                <span className="text-[10px] font-bold opacity-80 uppercase tracking-tight">Связаться в Telegram</span>
+                <span className="text-[9px] font-bold opacity-80 uppercase tracking-tight">Связаться в Telegram</span>
               </div>
-              <Send size={24} className="relative z-10 opacity-60" />
+              <Send size={22} className="relative z-10 opacity-60" />
             </button>
           </div>
         </div>
@@ -391,7 +390,7 @@ const App: React.FC = () => {
           <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
              <h2 className="text-xl font-bold leading-tight text-slate-900 tracking-tight">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} onClick={() => setFullscreenImage(activeDetailProduct.imageUrl)} />
-             <div className="text-slate-600 text-[13px] leading-relaxed font-medium">
+             <div className="text-slate-600 text-[15px] leading-relaxed font-medium">
                {renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}
              </div>
           </div>
@@ -421,37 +420,37 @@ const App: React.FC = () => {
             </div>
             
             <form onSubmit={handleCheckout} className="space-y-4">
-              <input required placeholder="Ваше имя" className="w-full bg-[#f8f9fc] p-4 rounded-2xl text-[13px] font-bold border border-slate-50 outline-none focus:bg-white transition-all text-slate-400" value={customerName} onChange={e => setCustomerName(e.target.value)} />
-              <input required type="email" placeholder="Email" className="w-full bg-[#f8f9fc] p-4 rounded-2xl text-[13px] font-bold border border-slate-50 outline-none focus:bg-white transition-all text-slate-400" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
+              <input required placeholder="Ваше имя" className="w-full bg-[#f8f9fc] p-4 rounded-2xl text-[15px] font-bold border border-slate-50 outline-none focus:bg-white transition-all text-slate-400 shadow-sm" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+              <input required type="email" placeholder="Email" className="w-full bg-[#f8f9fc] p-4 rounded-2xl text-[15px] font-bold border border-slate-50 outline-none focus:bg-white transition-all text-slate-400 shadow-sm" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
               
-              <div className="space-y-3 px-1">
+              <div className="space-y-4 px-1">
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <input type="checkbox" className="hidden" checked={agreedToTerms} onChange={() => setAgreedToTerms(!agreedToTerms)} />
-                  <div className={`w-5 h-5 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToTerms ? 'bg-slate-700 border-slate-700 text-white' : 'border-slate-300 bg-white shadow-inner'}`}>
-                    {agreedToTerms && <CheckCircle size={14} strokeWidth={3} />}
+                  <div className={`w-6 h-6 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToTerms ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'border-slate-300 bg-white shadow-inner'}`}>
+                    {agreedToTerms && <CheckCircle size={16} strokeWidth={3} />}
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500 leading-tight tracking-tight">Принимаю условия <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://axl.antol.net.ru/shabl/oferta_shab', '_blank');}} className="text-indigo-600 underline">публичной оферты</span></span>
+                  <span className="text-[13px] font-bold text-slate-500 leading-tight tracking-tight">Принимаю условия <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://axl.antol.net.ru/shabl/oferta_shab', '_blank');}} className="text-indigo-600 underline">публичной оферты</span></span>
                 </label>
 
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <input type="checkbox" className="hidden" checked={agreedToPrivacy} onChange={() => setAgreedToPrivacy(!agreedToPrivacy)} />
-                  <div className={`w-5 h-5 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToPrivacy ? 'bg-slate-700 border-slate-700 text-white' : 'border-slate-300 bg-white shadow-inner'}`}>
-                    {agreedToPrivacy && <CheckCircle size={14} strokeWidth={3} />}
+                  <div className={`w-6 h-6 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToPrivacy ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'border-slate-300 bg-white shadow-inner'}`}>
+                    {agreedToPrivacy && <CheckCircle size={16} strokeWidth={3} />}
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500 leading-tight tracking-tight">Согласен с <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://axl.antol.net.ru/politica', '_blank');}} className="text-indigo-600 underline">политикой конфиденциальности</span></span>
+                  <span className="text-[13px] font-bold text-slate-500 leading-tight tracking-tight">Согласен с <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://axl.antol.net.ru/politica', '_blank');}} className="text-indigo-600 underline">политикой конфиденциальности</span></span>
                 </label>
 
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <input type="checkbox" className="hidden" checked={agreedToMarketing} onChange={() => setAgreedToMarketing(!agreedToMarketing)} />
-                  <div className={`w-5 h-5 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToMarketing ? 'bg-slate-700 border-slate-700 text-white' : 'border-slate-300 bg-white shadow-inner'}`}>
-                    {agreedToMarketing && <CheckCircle size={14} strokeWidth={3} />}
+                  <div className={`w-6 h-6 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${agreedToMarketing ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'border-slate-300 bg-white shadow-inner'}`}>
+                    {agreedToMarketing && <CheckCircle size={16} strokeWidth={3} />}
                   </div>
-                  <span className="text-[11px] font-bold text-slate-500 leading-tight tracking-tight">Согласен на получение <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://shopscript.lpxl.ru/soglasie', '_blank');}} className="text-indigo-600 underline">рекламных рассылок</span></span>
+                  <span className="text-[13px] font-bold text-slate-500 leading-tight tracking-tight">Согласен на получение <span onClick={(e) => {e.preventDefault(); e.stopPropagation(); window.open('https://shopscript.lpxl.ru/soglasie', '_blank');}} className="text-indigo-600 underline">рекламных рассылок</span></span>
                 </label>
               </div>
 
               <div className="pt-2 text-center">
-                <button type="submit" disabled={!agreedToTerms || !agreedToPrivacy || !agreedToMarketing || isSubmitting} className={`w-full py-5 rounded-2xl text-[12px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${(!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) ? 'bg-slate-100 text-slate-400 opacity-50' : 'bg-indigo-600 text-white shadow-indigo-200'}`}>
+                <button type="submit" disabled={!agreedToTerms || !agreedToPrivacy || !agreedToMarketing || isSubmitting} className={`w-full py-5 rounded-2xl text-[14px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${(!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) ? 'bg-slate-100 text-slate-400 opacity-50' : 'bg-indigo-600 text-white shadow-indigo-200'}`}>
                   {isSubmitting ? 'Обработка...' : `ОПЛАТИТЬ ${checkoutProduct.price} ₽`}
                 </button>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-tight mt-4 px-4 leading-tight">
