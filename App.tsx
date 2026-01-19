@@ -113,13 +113,10 @@ const App: React.FC = () => {
       tg.ready(); 
       tg.expand(); 
       
-      // Попытка 1: Стандартный объект
       const user = tg.initDataUnsafe?.user;
       if (user) {
         detectedId = user.username ? `@${user.username}` : String(user.id);
-      } 
-      // Попытка 2: Если первый пуст, парсим initData
-      else if (tg.initData) {
+      } else if (tg.initData) {
         try {
           const params = new URLSearchParams(tg.initData);
           const userObj = JSON.parse(params.get('user') || '{}');
@@ -131,9 +128,10 @@ const App: React.FC = () => {
 
     setUserIdentifier(detectedId);
     syncWithCloud(true);
-    analyticsService.startSession(detectedId); // Передаем ID принудительно
+    // Принудительно стартуем сессию с обнаруженным ID
+    analyticsService.startSession(detectedId);
     fetchUserAccess(detectedId);
-  }, [syncWithCloud]);
+  }, []); // Только при первом запуске
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -161,6 +159,7 @@ const App: React.FC = () => {
     setView(newView); 
     window.scrollTo(0, 0); 
     if (newView === 'account') fetchUserAccess();
+    analyticsService.updateSessionPath('session', newView);
   };
 
   const isFree = useMemo(() => {
