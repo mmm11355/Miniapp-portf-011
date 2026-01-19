@@ -48,7 +48,7 @@ const App: React.FC = () => {
 
   const fetchUserAccess = useCallback(async (forcedId?: string) => {
     const userInfo = getDetailedTgUser();
-    const targetIds = Array.from(new Set([forcedId, userInfo.id, userInfo.username, userIdentifier].filter(Boolean) as string[]));
+    const targetIds = Array.from(new Set([forcedId, userInfo.tg_id, userInfo.username, userIdentifier].filter(Boolean) as string[]));
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       for (const id of targetIds) {
@@ -109,6 +109,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // Небольшая задержка, чтобы WebApp SDK успел инициализироваться
+      await new Promise(r => setTimeout(r, 200));
       const userInfo = getDetailedTgUser();
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
@@ -146,30 +148,18 @@ const App: React.FC = () => {
 
   const renderRichText = (text: string) => {
     if (!text) return null;
-    // 1. Разбиваем по тегам видео/фото
     const parts = text.split(/(\[\[(?:image|video):.*?\]\])/g);
     return parts.map((part, i) => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
 
-      // 2. Ищем ссылки в обычном тексте и делаем их кликабельными
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const subParts = part.split(urlRegex);
       return (
         <p key={i} className="mb-2 whitespace-pre-wrap">
           {subParts.map((sub, j) => {
             if (sub.match(urlRegex)) {
-              return (
-                <a 
-                  key={j} 
-                  href={sub} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-indigo-600 underline font-bold break-all"
-                >
-                  {sub}
-                </a>
-              );
+              return <a key={j} href={sub} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold break-all">{sub}</a>;
             }
             return sub;
           })}
