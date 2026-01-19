@@ -4,7 +4,7 @@ import Layout from './components/Layout';
 import AdminDashboard from './components/AdminDashboard';
 import { ViewState, Product, TelegramConfig } from './types';
 import { INITIAL_PRODUCTS, ADMIN_PASSWORD } from './constants';
-import { analyticsService } from './services/analyticsService';
+import { analyticsService, getDetailedTgUser } from './services/analyticsService';
 import { 
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send
 } from 'lucide-react';
@@ -21,8 +21,12 @@ const App: React.FC = () => {
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [agreedToMarketing, setAgreedToMarketing] = useState(false);
 
+  // Состояние для активного секретного контента
+  const [activeSecretProduct, setActiveSecretProduct] = useState<Product | null>(null);
+
   // Реактивное состояние для пользователя Telegram
   const [userIdentifier, setUserIdentifier] = useState<string>('guest');
+  const [userNumericId, setUserNumericId] = useState<string | null>(null);
 
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -49,13 +53,26 @@ const App: React.FC = () => {
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
   const fetchUserAccess = useCallback(async (forcedId?: string) => {
-    const targetId = forcedId || userIdentifier;
-    if (!telegramConfig.googleSheetWebhook || targetId === 'guest') return;
+    const userInfo = getDetailedTgUser();
+    // Проверяем доступы по всем возможным ID для кросс-платформенности
+    const targetIds = [
+      forcedId || userIdentifier, 
+      userInfo.id, 
+      userInfo.username
+    ].filter(Boolean) as string[];
+
+    if (!telegramConfig.googleSheetWebhook) return;
+    
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(targetId.trim())}&_t=${Date.now()}`);
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.access)) {
-        setUserPurchasedIds(data.access.map(item => String(item).trim().toLowerCase()));
+      // Пытаемся получить доступы, перебирая идентификаторы
+      for (const id of targetIds) {
+        if (id === 'guest') continue;
+        const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`);
+        const data = await res.json();
+        if (data.status === 'success' && Array.isArray(data.access)) {
+          const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+          setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
+        }
       }
     } catch (e) {}
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
@@ -93,7 +110,7 @@ const App: React.FC = () => {
               externalLink: p.externallink || '',
               detailFullDescription: p.detailfulldescription || '',
               detailGallery: gallery,
-              secretContent: p.secretcontent || '',
+              secretContent: p.secretcontent || p['secretcontent'] || '', // Поле с платным контентом
               allowedPromo: p.allowedpromo || '',
               detailButtonText: p.detailbuttontext || p.buttontext || 'Оформить заказ'
             };
@@ -106,32 +123,16 @@ const App: React.FC = () => {
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    let detectedId = 'guest';
-
-    if (tg) { 
-      tg.ready(); 
-      tg.expand(); 
-      
-      const user = tg.initDataUnsafe?.user;
-      if (user) {
-        detectedId = user.username ? `@${user.username}` : String(user.id);
-      } else if (tg.initData) {
-        try {
-          const params = new URLSearchParams(tg.initData);
-          const userObj = JSON.parse(params.get('user') || '{}');
-          if (userObj.username) detectedId = `@${userObj.username}`;
-          else if (userObj.id) detectedId = String(userObj.id);
-        } catch(e) {}
-      }
-    }
+    const userInfo = getDetailedTgUser();
+    const detectedId = userInfo.primaryId;
 
     setUserIdentifier(detectedId);
+    setUserNumericId(userInfo.id);
+    
     syncWithCloud(true);
-    // Принудительно стартуем сессию с обнаруженным ID
     analyticsService.startSession(detectedId);
     fetchUserAccess(detectedId);
-  }, []); // Только при первом запуске
+  }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -156,6 +157,7 @@ const App: React.FC = () => {
   const handleNavigate = (newView: ViewState) => { 
     setActiveDetailProduct(null);
     setCheckoutProduct(null);
+    setActiveSecretProduct(null);
     setView(newView); 
     window.scrollTo(0, 0); 
     if (newView === 'account') fetchUserAccess();
@@ -187,6 +189,13 @@ const App: React.FC = () => {
             method: 'POST', mode: 'no-cors',
             body: JSON.stringify({ action: 'grantAccess', userId: userIdentifier, productId: checkoutProduct.id, orderId: order.id })
           });
+          // Также дублируем по числовому ID для надежности
+          if (userNumericId) {
+            fetch(telegramConfig.googleSheetWebhook, {
+              method: 'POST', mode: 'no-cors',
+              body: JSON.stringify({ action: 'grantAccess', userId: userNumericId, productId: checkoutProduct.id, orderId: order.id })
+            });
+          }
         }
         await analyticsService.updateOrderStatus(order.id, 'paid');
         alert('Доступ открыт! Проверьте раздел «МОИ»');
@@ -276,30 +285,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'contact' && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in duration-500">
-           <div className="w-24 h-24 bg-white rounded-full shadow-xl flex items-center justify-center relative border border-slate-50">
-              <div className="absolute inset-0 bg-indigo-500/5 blur-xl rounded-full animate-pulse" />
-              <MessageCircle size={40} className="text-indigo-500 relative z-10" />
-           </div>
-           
-           <div className="space-y-2">
-             <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">СВЯЗАТЬСЯ СО МНОЙ</h2>
-             <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">ОТВЕТ В ТЕЧЕНИЕ ПАРУ ЧАСОВ</p>
-           </div>
-
-           <div className="w-full px-4">
-            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-95 transition-all">
-               <div className="flex flex-col items-start">
-                  <span className="text-[14px] font-black uppercase tracking-widest">Написать в TG</span>
-                  <span className="text-[9px] font-bold opacity-80 uppercase tracking-widest">Прямая связь со мной</span>
-               </div>
-               <Send size={24} />
-            </button>
-           </div>
-        </div>
-      )}
-
       {view === 'account' && (
         <div className="space-y-4 animate-in fade-in duration-500">
           <div className="text-center py-4">
@@ -310,7 +295,7 @@ const App: React.FC = () => {
           <div className="px-2">
             <div className="bg-slate-100/60 border border-slate-100 rounded-2xl py-3 px-5 text-center shadow-sm">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
-                Доступ к материалам откроется в течение дня после оплаты
+                Доступ к материалам открыт навсегда
               </p>
             </div>
           </div>
@@ -328,14 +313,14 @@ const App: React.FC = () => {
           ) : (
             <div className="grid gap-3 px-2 mt-2">
               {purchasedProducts.map(p => (
-                <div key={p.id} className="bg-white p-5 rounded-[2rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-95 transition-all" onClick={() => setActiveDetailProduct(p)}>
+                <div key={p.id} className="bg-white p-5 rounded-[2rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-95 transition-all cursor-pointer" onClick={() => setActiveSecretProduct(p)}>
                   <div className="relative shrink-0">
                     <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
                     <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center text-white"><CheckCircle size={10} strokeWidth={3}/></div>
                   </div>
                   <div className="flex-grow">
                     <h3 className="text-sm font-bold text-slate-800 leading-tight mb-1">{p.title}</h3>
-                    <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Открыть доступ</div>
+                    <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Изучить материал</div>
                   </div>
                   <ChevronRight size={18} className="text-slate-200" />
                 </div>
@@ -345,6 +330,55 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Окно купленного контента (Secret Content) */}
+      {activeSecretProduct && (
+        <div className="fixed top-0 left-0 right-0 bottom-20 z-[3000] bg-white flex flex-col animate-in slide-in-from-bottom duration-500 overflow-hidden shadow-2xl">
+          <div className="p-4 flex items-center justify-between border-b bg-white/90 backdrop-blur-md sticky top-0 z-[3001]">
+            <button onClick={() => setActiveSecretProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><ChevronLeft size={20}/></button>
+            <div className="flex flex-col items-center px-4 overflow-hidden">
+               <span className="text-[10px] font-black uppercase text-indigo-500 tracking-[0.2em]">Ваш доступ</span>
+               <span className="text-[9px] font-bold text-slate-400 truncate max-w-[150px] uppercase tracking-wider">{activeSecretProduct.title}</span>
+            </div>
+            <button onClick={() => setActiveSecretProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20}/></button>
+          </div>
+          
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32">
+             <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3">
+               <CheckCircle size={20} className="text-emerald-500 shrink-0" />
+               <p className="text-[12px] font-bold text-emerald-800 leading-tight">Материал успешно разблокирован. Вы можете пользоваться им в любое время.</p>
+             </div>
+
+             <h2 className="text-xl font-black leading-tight text-slate-900 tracking-tight uppercase">{activeSecretProduct.title}</h2>
+             
+             <div className="prose prose-slate max-w-none">
+               <div className="text-slate-700 text-[15px] leading-relaxed font-medium space-y-4">
+                 {activeSecretProduct.secretContent ? (
+                   renderRichText(activeSecretProduct.secretContent)
+                 ) : (
+                   <div className="py-10 text-center space-y-4">
+                     <Lock size={40} className="mx-auto text-slate-200" />
+                     <p className="text-slate-400 text-sm">Контент загружается или еще не заполнен в базе. Свяжитесь с поддержкой, если это ошибка.</p>
+                   </div>
+                 )}
+               </div>
+             </div>
+             
+             {activeSecretProduct.externalLink && (
+               <div className="pt-4">
+                 <button onClick={() => window.open(activeSecretProduct.externalLink, '_blank')} className="w-full bg-slate-900 text-white py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                    Перейти к уроку / ресурсу <Send size={16} />
+                 </button>
+               </div>
+             )}
+          </div>
+          
+          <div className="fixed bottom-24 left-0 right-0 z-[3002] flex justify-center px-6">
+            <button onClick={() => setActiveSecretProduct(null)} className="bg-slate-100 text-slate-500 px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-200 transition-all border border-slate-200">Закрыть материал</button>
+          </div>
+        </div>
+      )}
+
+      {/* ОСТАЛЬНЫЕ РАЗДЕЛЫ И МОДАЛКИ (БЕЗ ИЗМЕНЕНИЙ) */}
       {view === 'portfolio' && (
         <div className="space-y-6 animate-in slide-in-from-right duration-500">
           <div className="flex bg-slate-200/40 p-1 rounded-2xl mx-1">
@@ -419,7 +453,7 @@ const App: React.FC = () => {
             <button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20}/></button>
           </div>
           <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-40">
-             <h2 className="text-xl font-bold leading-tight text-slate-900 tracking-tight">{activeDetailProduct.title}</h2>
+             <h2 className="text-xl font-bold leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} onClick={() => setFullscreenImage(activeDetailProduct.imageUrl)} />
              <div className="text-slate-600 text-[15px] leading-relaxed font-medium">
                {renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}

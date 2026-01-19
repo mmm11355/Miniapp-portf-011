@@ -8,44 +8,31 @@ const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4C
 const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
 const CHAT_ID = '-1002095569247';
 
-const getTgUsername = () => {
+/**
+ * Получает максимально надежный идентификатор пользователя.
+ * Приоритет: Числовой ID (стабилен), затем Username.
+ */
+export const getDetailedTgUser = () => {
   try {
     const tg = (window as any).Telegram?.WebApp;
-    // Попытка получить из основного объекта
     const user = tg?.initDataUnsafe?.user;
-    if (user?.username) return `@${user.username}`;
-    if (user?.id) return String(user.id);
-
-    // Попытка распарсить сырые данные
-    const rawData = tg?.initData;
-    if (rawData) {
-      const params = new URLSearchParams(rawData);
-      const userStr = params.get('user');
-      if (userStr) {
-        const userData = JSON.parse(userStr);
-        if (userData.username) return `@${userData.username}`;
-        if (userData.id) return String(userData.id);
-      }
-    }
-
-    // Попытка достать из URL (для десктопа/старых версий)
-    const hash = window.location.hash;
-    if (hash.includes('tgWebAppData')) {
-      const webAppData = new URLSearchParams(hash.substring(1)).get('tgWebAppData');
-      if (webAppData) {
-        const decoded = decodeURIComponent(webAppData);
-        const userMatch = decoded.match(/"username":"(.*?)"/);
-        if (userMatch) return `@${userMatch[1]}`;
-        const idMatch = decoded.match(/"id":(\d+)/);
-        if (idMatch) return idMatch[1];
-      }
-    }
     
-    return 'Гость';
+    const id = user?.id ? String(user.id) : null;
+    const username = user?.username ? `@${user.username}` : null;
+    
+    // Если есть и то и другое, возвращаем ID для надежности, но сохраняем ник для отображения
+    return {
+      primaryId: id || username || 'guest',
+      id: id,
+      username: username,
+      displayName: username || id || 'Гость'
+    };
   } catch (e) {
-    return 'Гость';
+    return { primaryId: 'guest', id: null, username: null, displayName: 'Гость' };
   }
 };
+
+const getTgUsername = () => getDetailedTgUser().primaryId;
 
 const getWebhookUrl = () => {
   try {
@@ -83,7 +70,7 @@ const sendToScript = async (payload: any) => {
   try {
     await fetch(webhook, {
       method: 'POST',
-      mode: 'no-cors', // Важно для Google Apps Script
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
@@ -107,7 +94,9 @@ export const analyticsService = {
 
   logOrder: async (order: Omit<OrderLog, 'id' | 'timestamp' | 'paymentStatus'>, currentSessionId?: string) => {
     const timestamp = Date.now();
-    const tgId = getTgUsername();
+    const userInfo = getDetailedTgUser();
+    const tgId = userInfo.primaryId;
+    
     const newOrder: OrderLog = {
       ...order,
       id: Math.random().toString(36).substr(2, 9),
@@ -126,12 +115,11 @@ export const analyticsService = {
                    `🛍 <b>Товар:</b> ${newOrder.productTitle}\n` +
                    `💰 <b>Сумма:</b> ${newOrder.price} ₽\n` +
                    `🔗 <b>Источник:</b> ${newOrder.utmSource}\n` +
-                   `📱 <b>ТГ:</b> ${tgId}\n` +
+                   `📱 <b>ТГ:</b> ${userInfo.displayName} (ID: ${userInfo.id || 'N/A'})\n` +
                    `📢 <b>Рассылка:</b> ${newOrder.agreedToMarketing ? 'Да' : 'Нет'}`;
     
     await sendTgMessage(botMsg);
 
-    // Отправляем мульти-ключи для совместимости с любыми скриптами
     await sendToScript({
       action: 'log',
       type: 'order',
@@ -139,11 +127,11 @@ export const analyticsService = {
       orderId: newOrder.id,
       name: newOrder.customerName,
       email: newOrder.customerEmail,
-      // Дублируем идентификатор пользователя во все возможные поля
-      username: tgId,
-      tgUsername: tgId,
-      userId: tgId,
-      user: tgId,
+      // Отправляем все варианты ID для гарантии фиксации в таблице
+      username: userInfo.username || userInfo.id,
+      tgUsername: userInfo.username || userInfo.id,
+      userId: userInfo.id,
+      user: userInfo.displayName,
       product: newOrder.productTitle,
       price: newOrder.price,
       utmSource: newOrder.utmSource,
@@ -159,7 +147,7 @@ export const analyticsService = {
   updateOrderStatus: async (orderId: string, status: 'paid' | 'failed') => {
     const orders = analyticsService.getOrders();
     const idx = orders.findIndex(o => o.id === orderId);
-    const tgId = getTgUsername();
+    const userInfo = getDetailedTgUser();
     
     if (idx !== -1) {
       orders[idx].paymentStatus = status;
@@ -174,12 +162,10 @@ export const analyticsService = {
       action: 'update_status',
       orderId: orderId,
       paymentStatus: status,
-      // Опять дублируем ID
-      username: tgId,
-      tgUsername: tgId,
-      userId: tgId,
-      user: tgId,
-      updatedBy: tgId,
+      username: userInfo.username || userInfo.id,
+      tgUsername: userInfo.username || userInfo.id,
+      userId: userInfo.id,
+      updatedBy: userInfo.displayName,
       dateStr: formatNow()
     });
   },
@@ -190,7 +176,8 @@ export const analyticsService = {
     const params = new URLSearchParams(window.location.search);
     const timestamp = Date.now();
     const utmSource = params.get('utm_source') || 'direct';
-    const tgId = forcedUsername || getTgUsername();
+    const userInfo = getDetailedTgUser();
+    const tgId = forcedUsername || userInfo.primaryId;
 
     let city = 'Unknown';
     let country = 'Unknown';
@@ -224,12 +211,11 @@ export const analyticsService = {
       action: 'log',
       type: 'session_start',
       sessionId: sessionId,
-      // Максимальный охват полей идентификации
-      username: tgId,
-      tgUsername: tgId,
-      userId: tgId,
-      user: tgId,
-      name: tgId,
+      username: userInfo.username || userInfo.id,
+      tgUsername: userInfo.username || userInfo.id,
+      userId: userInfo.id,
+      user: userInfo.displayName,
+      name: userInfo.displayName,
       city: city,
       country: country,
       utmSource: utmSource,
@@ -241,17 +227,16 @@ export const analyticsService = {
 
   updateSessionPath: async (sessionId: string, path: string) => {
     if (!sessionId) return;
-    const tgId = getTgUsername();
+    const userInfo = getDetailedTgUser();
     
     await sendToScript({
       action: 'log',
       type: 'path_update',
       sessionId: sessionId,
-      // И здесь дублируем
-      username: tgId,
-      tgUsername: tgId,
-      userId: tgId,
-      user: tgId,
+      username: userInfo.username || userInfo.id,
+      tgUsername: userInfo.username || userInfo.id,
+      userId: userInfo.id,
+      user: userInfo.displayName,
       path: path,
       product: `Переход: ${path}`,
       dateStr: formatNow()
