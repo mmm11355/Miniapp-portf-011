@@ -52,7 +52,7 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       for (const id of targetIds) {
-        if (id === 'guest') continue;
+        if (id === 'guest' || id === 'none') continue;
         const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`, { redirect: 'follow' });
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.access)) {
@@ -141,25 +141,35 @@ const App: React.FC = () => {
       let embedUrl = url.replace('/video/', '/play/embed/').replace('watch?v=', 'embed/');
       return <div className={`relative w-full aspect-video bg-black overflow-hidden ${isDetail ? 'rounded-2xl' : 'rounded-xl'}`}><iframe src={embedUrl} className="w-full h-full border-none" allowFullScreen></iframe></div>;
     }
-    return type === 'video' ? <video src={url} className={isDetail ? 'w-full h-auto rounded-2xl' : className} autoPlay muted loop playsInline onClick={onClick} /> : <img src={url} className={isDetail ? 'w-full h-auto rounded-2xl' : className} alt="" onClick={onClick} />;
+    return type === 'video' ? <video src={url} className={isDetail ? 'w-auto rounded-2xl' : className} autoPlay muted loop playsInline onClick={onClick} /> : <img src={url} className={isDetail ? 'w-auto rounded-2xl' : className} alt="" onClick={onClick} />;
   };
 
   const renderRichText = (text: string) => {
     if (!text) return null;
-    // 1. Сначала разбиваем по тегам видео/фото [[...]]
+    // 1. Разбиваем по тегам видео/фото
     const parts = text.split(/(\[\[(?:image|video):.*?\]\])/g);
     return parts.map((part, i) => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
 
-      // 2. В обычном тексте ищем ссылки и делаем их кликабельными
+      // 2. Ищем ссылки в обычном тексте и делаем их кликабельными
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const subParts = part.split(urlRegex);
       return (
         <p key={i} className="mb-2 whitespace-pre-wrap">
           {subParts.map((sub, j) => {
             if (sub.match(urlRegex)) {
-              return <a key={j} href={sub} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold break-all">{sub}</a>;
+              return (
+                <a 
+                  key={j} 
+                  href={sub} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-indigo-600 underline font-bold break-all"
+                >
+                  {sub}
+                </a>
+              );
             }
             return sub;
           })}
@@ -328,7 +338,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Секретный контент */}
+      {/* Секретный контент (раздел "МОИ") */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">

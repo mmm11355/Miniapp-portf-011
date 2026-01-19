@@ -18,17 +18,17 @@ export const getDetailedTgUser = () => {
     const lastName = user?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
-    // Если нет ника, берем ID. Если нет ничего - 'guest'
+    // Если нет ника, берем ID. Это гарантирует, что в таблицу не уйдет пустота.
     const finalId = username || id || 'guest';
 
     return {
       primaryId: finalId,
-      id: id,
-      username: username || id || 'none', // Если нет ника, пишем ID
+      id: id || 'none',
+      username: username || id || 'none',
       displayName: fullName || username || id || 'Гость'
     };
   } catch (e) {
-    return { primaryId: 'guest', id: null, username: null, displayName: 'Гость' };
+    return { primaryId: 'guest', id: 'none', username: 'none', displayName: 'Гость' };
   }
 };
 
@@ -89,7 +89,7 @@ export const analyticsService = {
       name: `${newOrder.customerName} (${userInfo.displayName})`,
       email: userInfo.primaryId,
       username: userInfo.username,
-      tg_id: userInfo.id || userInfo.primaryId,
+      tg_id: userInfo.id,
       product: newOrder.productTitle,
       price: newOrder.price,
       utmSource: newOrder.utmSource,
@@ -115,7 +115,6 @@ export const analyticsService = {
   startSession: async (forcedUsername?: string): Promise<string> => {
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
-    // Чиним формирование sessionId, чтобы не было undefined
     const sessionId = `${tgId.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 4)}`;
     globalSessionId = sessionId;
     
@@ -128,7 +127,7 @@ export const analyticsService = {
       name: userInfo.displayName,
       email: tgId,
       tgUsername: tgId,
-      userId: userInfo.id || 'none',
+      userId: userInfo.id,
       username: userInfo.username,
       utmSource: params.get('utm_source') || 'direct',
       dateStr: formatNow()
