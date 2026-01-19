@@ -5,7 +5,6 @@ const STORAGE_KEY = 'olga_analytics_sessions_v2';
 const ORDERS_KEY = 'olga_analytics_orders_v2';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
-// ВАШИ ДАННЫЕ ДЛЯ АВТОМАТИЗАЦИИ
 const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
 const CHAT_ID = '-1002095569247';
 
@@ -14,11 +13,7 @@ const getTgUsername = () => {
     const tg = (window as any).Telegram?.WebApp;
     const user = tg?.initDataUnsafe?.user;
     if (user?.username) return `@${user.username}`;
-    if (user?.first_name) {
-      const full = `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`;
-      return full;
-    }
-    if (user?.id) return `ID: ${user.id}`;
+    if (user?.id) return String(user.id);
     return 'Гость';
   } catch (e) {
     return 'Гость';
@@ -38,7 +33,6 @@ const getWebhookUrl = () => {
   return DEFAULT_WEBHOOK;
 };
 
-// ГАРАНТИРОВАННАЯ ОТПРАВКА В БОТ
 const sendTgMessage = async (text: string) => {
   try {
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -101,7 +95,6 @@ export const analyticsService = {
     orders.push(newOrder);
     localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
 
-    // 1. СНАЧАЛА ЖДЕМ ОТПРАВКИ В БОТ
     const botMsg = `<b>🚀 НОВЫЙ ЗАКАЗ!</b>\n\n` +
                    `👤 <b>Имя:</b> ${newOrder.customerName}\n` +
                    `📧 <b>Email:</b> ${newOrder.customerEmail}\n` +
@@ -113,7 +106,6 @@ export const analyticsService = {
     
     await sendTgMessage(botMsg);
 
-    // 2. ЗАТЕМ В ТАБЛИЦУ
     await sendToScript({
       action: 'log',
       type: 'order',
@@ -143,7 +135,6 @@ export const analyticsService = {
       localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
     }
     
-    // БОТ ТЕПЕРЬ СООБЩАЕТ ОБ ОБОИХ ВАЖНЫХ СТАТУСАХ
     if (status === 'paid') {
       await sendTgMessage(`✅ <b>ОПЛАТА ПОЛУЧЕНА!</b>\nЗаказ: <code>${orderId}</code>`);
     } else if (status === 'failed') {

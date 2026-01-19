@@ -34,8 +34,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
         </button>
       </header>
 
-      {/* Контент */}
-      <main className="flex-grow pt-24 pb-28 px-5">
+      {/* Контент: pt-24 изменен на pt-[74px] для поднятия вверх */}
+      <main className="flex-grow pt-[74px] pb-28 px-5">
         {children}
       </main>
 

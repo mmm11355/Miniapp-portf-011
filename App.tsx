@@ -21,8 +21,8 @@ const App: React.FC = () => {
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [agreedToMarketing, setAgreedToMarketing] = useState(false);
 
-  const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-  const userIdentifier = tgUser?.username ? `@${tgUser.username}` : (tgUser?.id ? String(tgUser.id) : 'guest');
+  // Реактивное состояние для пользователя Telegram
+  const [userIdentifier, setUserIdentifier] = useState<string>('guest');
 
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -49,13 +49,11 @@ const App: React.FC = () => {
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
   const fetchUserAccess = useCallback(async () => {
-    if (!telegramConfig.googleSheetWebhook) return;
+    if (!telegramConfig.googleSheetWebhook || userIdentifier === 'guest') return;
     try {
-      // Принудительно указываем лист Permissions и делаем запрос к нему
       const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(userIdentifier.trim())}&_t=${Date.now()}`);
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.access)) {
-        // Сохраняем все ID из таблицы в нижнем регистре для корректного сравнения
         setUserPurchasedIds(data.access.map(item => String(item).trim().toLowerCase()));
       }
     } catch (e) {}
@@ -65,7 +63,6 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     if (showLoading) setIsSyncing(true);
     try {
-      // Принудительно запрашиваем данные из вкладки Catalog
       const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
       const rawData = await response.json();
       if (rawData && Array.isArray(rawData)) {
@@ -109,10 +106,25 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
+    if (tg) { 
+      tg.ready(); 
+      tg.expand(); 
+      // Инициализируем пользователя как можно раньше
+      const user = tg.initDataUnsafe?.user;
+      if (user) {
+        setUserIdentifier(user.username ? `@${user.username}` : String(user.id));
+      }
+    }
     syncWithCloud(true);
     analyticsService.startSession();
   }, [syncWithCloud]);
+
+  // Следим за изменением userIdentifier, чтобы обновить доступы
+  useEffect(() => {
+    if (userIdentifier !== 'guest') {
+      fetchUserAccess();
+    }
+  }, [userIdentifier, fetchUserAccess]);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -124,7 +136,6 @@ const App: React.FC = () => {
   const portfolioItems = useMemo(() => products.filter(p => p.section === 'portfolio'), [products]);
   const bonuses = useMemo(() => products.filter(p => p.section === 'bonus'), [products]);
   
-  // Улучшенная логика фильтрации купленных товаров (регистронезависимая и по листу Catalog)
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
       const pId = String(p.id).trim().toLowerCase();
@@ -218,8 +229,8 @@ const App: React.FC = () => {
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
       {view === 'home' && (
-        <div className="space-y-6 text-center py-4 animate-in fade-in duration-700">
-          <div className="relative inline-block mt-2">
+        <div className="space-y-3 text-center pt-0 pb-4 animate-in fade-in duration-700">
+          <div className="relative inline-block mt-0">
             <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full scale-125" />
             <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-36 h-36 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" />
           </div>
@@ -230,13 +241,12 @@ const App: React.FC = () => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-3 mx-2">
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-50 text-left space-y-2 mx-2">
              <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> <span className="whitespace-nowrap">Победитель Хакатона EdMarket</span></div>
              <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> <span className="whitespace-nowrap">Специалист GetCourse и Prodamus.XL</span></div>
              <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> <span className="whitespace-nowrap">60+ реализованных проектов</span></div>
              
-             {/* Исправленная строка: жесткая фиксация в один ряд без переносов */}
-             <div className="flex flex-row flex-nowrap items-center justify-between gap-2 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700 w-full cursor-pointer overflow-hidden" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+             <div className="flex flex-row flex-nowrap items-center justify-between gap-2 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700 w-full cursor-pointer overflow-hidden pt-1" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
                 <div className="flex flex-row flex-nowrap items-center gap-3 shrink-0">
                   <Globe size={18} className="text-indigo-400 shrink-0" />
                   <span className="whitespace-nowrap">Сайт-портфолио</span>
@@ -245,7 +255,7 @@ const App: React.FC = () => {
              </div>
           </div>
 
-          <div className="px-2 pt-2">
+          <div className="px-2 pt-0">
             <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               <div className="flex flex-col items-start relative z-10">
