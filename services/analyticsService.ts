@@ -18,12 +18,13 @@ export const getDetailedTgUser = () => {
     const lastName = user?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
+    // Если нет ника, берем ID. Если нет ничего - 'guest'
     const finalId = username || id || 'guest';
 
     return {
       primaryId: finalId,
       id: id,
-      username: username,
+      username: username || id || 'none', // Если нет ника, пишем ID
       displayName: fullName || username || id || 'Гость'
     };
   } catch (e) {
@@ -88,7 +89,7 @@ export const analyticsService = {
       name: `${newOrder.customerName} (${userInfo.displayName})`,
       email: userInfo.primaryId,
       username: userInfo.username,
-      tg_id: userInfo.id,
+      tg_id: userInfo.id || userInfo.primaryId,
       product: newOrder.productTitle,
       price: newOrder.price,
       utmSource: newOrder.utmSource,
@@ -98,7 +99,6 @@ export const analyticsService = {
     return newOrder;
   },
 
-  // Added updateOrderStatus method to fix the missing property error in AdminDashboard.tsx
   updateOrderStatus: async (orderId: string, status: 'paid' | 'failed') => {
     const userInfo = getDetailedTgUser();
     await sendToScript({
@@ -115,7 +115,8 @@ export const analyticsService = {
   startSession: async (forcedUsername?: string): Promise<string> => {
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
-    const sessionId = `${tgId}_${Math.random().toString(36).substr(2, 6)}`;
+    // Чиним формирование sessionId, чтобы не было undefined
+    const sessionId = `${tgId.replace(/[^a-zA-Z0-9]/g, '')}_${Math.random().toString(36).substr(2, 4)}`;
     globalSessionId = sessionId;
     
     const params = new URLSearchParams(window.location.search);
@@ -144,7 +145,7 @@ export const analyticsService = {
       action: 'log',
       type: 'path_update',
       sessionId: sId,
-      name: `Переход: ${path}`,
+      name: userInfo.displayName,
       email: userInfo.primaryId,
       tgUsername: userInfo.primaryId,
       path: path,

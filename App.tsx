@@ -146,22 +146,41 @@ const App: React.FC = () => {
 
   const renderRichText = (text: string) => {
     if (!text) return null;
+    // 1. Сначала разбиваем по тегам видео/фото [[...]]
     const parts = text.split(/(\[\[(?:image|video):.*?\]\])/g);
     return parts.map((part, i) => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
-      return <p key={i} className="mb-2 whitespace-pre-wrap">{part}</p>;
+
+      // 2. В обычном тексте ищем ссылки и делаем их кликабельными
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const subParts = part.split(urlRegex);
+      return (
+        <p key={i} className="mb-2 whitespace-pre-wrap">
+          {subParts.map((sub, j) => {
+            if (sub.match(urlRegex)) {
+              return <a key={j} href={sub} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold break-all">{sub}</a>;
+            }
+            return sub;
+          })}
+        </p>
+      );
     });
   };
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
       {view === 'home' && (
-        <div className="space-y-4 text-center pt-2 pb-4 page-transition">
-          <div className="relative inline-block mt-4"><img src="https://i.imgur.com/bQ8ic2w.png" className="w-32 h-32 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" /></div>
+        <div className="space-y-4 text-center pb-4 page-transition">
+          <div className="relative inline-block mt-2">
+            <img 
+              src="https://i.imgur.com/bQ8ic2w.png" 
+              className="w-44 h-44 mx-auto rounded-[2.5rem] shadow-2xl border-4 border-white object-cover" 
+            />
+          </div>
           <div className="space-y-1">
             <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
-            <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
+            <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none mt-1">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
@@ -309,6 +328,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Секретный контент */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
@@ -319,12 +339,14 @@ const App: React.FC = () => {
           <div className="flex-grow overflow-y-auto p-6 space-y-6 pb-10 no-scrollbar">
              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3"><CheckCircle size={20} className="text-emerald-500 shrink-0" /><p className="text-[12px] font-bold text-emerald-800">Материал разблокирован.</p></div>
              <h2 className="text-xl font-black uppercase leading-tight">{activeSecretProduct.title}</h2>
-             <div className="text-slate-700 text-[15px] leading-relaxed space-y-4">{activeSecretProduct.secretContent ? renderRichText(activeSecretProduct.secretContent) : <p className="text-slate-300">Контент скоро появится...</p>}</div>
-             {activeSecretProduct.externalLink && <button onClick={() => window.open(activeSecretProduct.externalLink, '_blank')} className="w-full bg-slate-900 text-white py-5 rounded-2xl text-[11px] font-black uppercase shadow-xl">Перейти к ресурсу</button>}
+             <div className="text-slate-700 text-[15px] leading-relaxed space-y-4">
+               {activeSecretProduct.secretContent ? renderRichText(activeSecretProduct.secretContent) : <p className="text-slate-300">Контент скоро появится...</p>}
+             </div>
           </div>
         </div>
       )}
 
+      {/* Оформление заказа */}
       {checkoutProduct && (
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">
