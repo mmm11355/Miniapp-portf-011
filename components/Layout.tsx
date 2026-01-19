@@ -14,13 +14,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
     { id: 'home', label: 'ИНФО', icon: Home },
     { id: 'portfolio', label: 'КЕЙСЫ', icon: Briefcase },
     { id: 'shop', label: 'МАГАЗИН', icon: ShoppingBag },
-    { id: 'account', label: 'МОИ', icon: BookOpen }, // Вкладка личного кабинета
+    { id: 'account', label: 'МОИ', icon: BookOpen }, 
     { id: 'contact', label: 'TG', icon: Send },
   ];
 
   return (
     <div className="min-h-screen bg-[#f6f8fb] flex flex-col max-w-md mx-auto relative border-x border-slate-100 overflow-x-hidden">
-      {/* ПРЕМИАЛЬНАЯ ФИКСИРОВАННАЯ ШАПКА */}
       <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[1500] bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('home')}>
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-black text-[12px] shadow-lg shadow-indigo-100">ОА</div>
@@ -34,13 +33,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
         </button>
       </header>
 
-      {/* Контент: pt-24 изменен на pt-[74px] для поднятия вверх */}
       <main className="flex-grow pt-[74px] pb-28 px-5">
         {children}
       </main>
 
-      {/* ПРЕМИАЛЬНАЯ НАВИГАЦИЯ */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-100 grid grid-cols-5 h-20 px-2 z-[1500] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+      {/* Навигация всегда сверху всех модальных окон кроме критических */}
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-100 grid grid-cols-5 h-20 px-2 z-[5000] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
