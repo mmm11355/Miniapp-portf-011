@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Layout from './components/Layout';
 import AdminDashboard from './components/AdminDashboard';
 import { ViewState, Product, TelegramConfig } from './types';
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('home');
   const [portfolioTab, setPortfolioTab] = useState<'cases' | 'bonuses'>('cases');
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]); 
+  const activeSessionId = useRef<string>('');
   
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
@@ -107,14 +108,15 @@ const App: React.FC = () => {
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const init = async () => {
       const userInfo = getDetailedTgUser();
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
-      analyticsService.startSession(userInfo.primaryId);
+      const sid = await analyticsService.startSession(userInfo.primaryId);
+      activeSessionId.current = sid;
       fetchUserAccess(userInfo.primaryId);
-    }, 200);
-    return () => clearTimeout(timer);
+    };
+    init();
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -130,7 +132,7 @@ const App: React.FC = () => {
   const handleNavigate = (newView: ViewState) => { 
     setActiveDetailProduct(null); setCheckoutProduct(null); setActiveSecretProduct(null); setView(newView); 
     if (newView === 'account') fetchUserAccess();
-    analyticsService.updateSessionPath('session', newView);
+    analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
   const MediaRenderer: React.FC<{ url: string; type: 'image' | 'video'; className?: string; onClick?: () => void; isDetail?: boolean }> = ({ url, type, className, onClick, isDetail }) => {
@@ -249,8 +251,8 @@ const App: React.FC = () => {
 
       {view === 'account' && (
         <div className="space-y-4 page-transition -mt-2">
-          <div className="py-10 text-center mb-2">
-             <h2 className="text-[26px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
+          <div className="py-8 text-center mb-2 px-4">
+             <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
           </div>
 
           {purchasedProducts.length === 0 ? (
@@ -282,7 +284,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно Лонгрида (БОЛЬШЕ НЕ МАТРЕШКА) */}
+      {/* Модальное окно Лонгрида */}
       {activeDetailProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
@@ -290,10 +292,10 @@ const App: React.FC = () => {
             <span className="text-[9px] font-black uppercase text-slate-400 truncate px-4 tracking-[0.2em]">ПОДРОБНОСТИ</span>
             <button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20}/></button>
           </div>
-          <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32">
-             <h2 className="text-[18px] font-black leading-snug text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
+          <div className="flex-grow overflow-y-auto p-6 space-y-5 no-scrollbar pb-32">
+             <h2 className="text-[16px] font-black leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} />
-             <div className="text-slate-600 text-[14px] leading-snug font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
+             <div className="text-slate-600 text-[13px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
           </div>
           <div className="absolute bottom-6 left-0 right-0 z-[4600] px-6 flex justify-center">
             <button 
@@ -307,7 +309,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Остальное без изменений */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
@@ -340,7 +341,7 @@ const App: React.FC = () => {
                 customerName, customerEmail, customerPhone: 'none',
                 utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
                 agreedToMarketing
-              } as any);
+              } as any, activeSessionId.current);
               let paymentUrl = checkoutProduct.prodamusId?.startsWith('http') ? checkoutProduct.prodamusId : 'https://antol.payform.ru/';
               const connector = paymentUrl.includes('?') ? '&' : '?';
               paymentUrl += `${connector}order_id=${order.id}&customer_email=${encodeURIComponent(customerEmail)}`;

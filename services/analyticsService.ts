@@ -10,7 +10,6 @@ export const getDetailedTgUser = () => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
       tg.ready();
-      tg.expand();
     }
     const user = tg?.initDataUnsafe?.user;
     const id = user?.id ? String(user.id) : null;
@@ -19,11 +18,13 @@ export const getDetailedTgUser = () => {
     const lastName = user?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
+    const finalId = username || id || 'guest';
+
     return {
-      primaryId: username || id || 'guest',
+      primaryId: finalId,
       id: id,
       username: username,
-      displayName: username || fullName || id || 'Гость'
+      displayName: fullName || username || id || 'Гость'
     };
   } catch (e) {
     return { primaryId: 'guest', id: null, username: null, displayName: 'Гость' };
@@ -68,13 +69,6 @@ export const analyticsService = {
     } catch (e) { return []; }
   },
 
-  getOrders: (): OrderLog[] => {
-    try {
-      const data = localStorage.getItem(ORDERS_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch (e) { return []; }
-  },
-
   logOrder: async (order: Omit<OrderLog, 'id' | 'timestamp' | 'paymentStatus'>, currentSessionId?: string) => {
     const timestamp = Date.now();
     const userInfo = getDetailedTgUser();
@@ -86,10 +80,6 @@ export const analyticsService = {
       paymentStatus: 'pending'
     };
 
-    const orders = analyticsService.getOrders();
-    orders.push(newOrder);
-    localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-
     await sendToScript({
       action: 'log',
       type: 'order',
@@ -97,70 +87,49 @@ export const analyticsService = {
       orderId: newOrder.id,
       name: `${newOrder.customerName} (${userInfo.displayName})`,
       email: userInfo.primaryId,
-      tgUsername: userInfo.primaryId,
-      userId: userInfo.id || 'none',
+      username: userInfo.username,
+      tg_id: userInfo.id,
       product: newOrder.productTitle,
       price: newOrder.price,
       utmSource: newOrder.utmSource,
-      paymentStatus: 'pending',
-      dateStr: formatNow(),
-      timestamp: timestamp
+      dateStr: formatNow()
     });
     
     return newOrder;
   },
 
+  // Added updateOrderStatus method to fix the missing property error in AdminDashboard.tsx
   updateOrderStatus: async (orderId: string, status: 'paid' | 'failed') => {
-    const orders = analyticsService.getOrders();
-    const idx = orders.findIndex(o => o.id === orderId);
     const userInfo = getDetailedTgUser();
-    if (idx !== -1) {
-      orders[idx].paymentStatus = status;
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-    }
     await sendToScript({
       action: 'update_status',
+      type: 'order',
       orderId: orderId,
-      paymentStatus: status,
+      status: status,
+      email: userInfo.primaryId,
       tgUsername: userInfo.primaryId,
-      userId: userInfo.id || 'none',
       dateStr: formatNow()
     });
   },
 
   startSession: async (forcedUsername?: string): Promise<string> => {
-    const sessionId = Math.random().toString(36).substr(2, 9);
-    globalSessionId = sessionId;
-    const params = new URLSearchParams(window.location.search);
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
+    const sessionId = `${tgId}_${Math.random().toString(36).substr(2, 6)}`;
+    globalSessionId = sessionId;
     
-    const newSession: Session = {
-      id: sessionId,
-      startTime: Date.now(),
-      city: 'Unknown',
-      country: 'Unknown',
-      pathHistory: ['home'],
-      duration: 0,
-      utmSource: params.get('utm_source') || 'direct',
-      utmMedium: params.get('utm_medium') || 'none',
-      utmCampaign: params.get('utm_campaign') || 'none',
-      tgUsername: tgId
-    };
-
-    const sessions = analyticsService.getSessions();
-    sessions.push(newSession);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-
+    const params = new URLSearchParams(window.location.search);
+    
     await sendToScript({
       action: 'log',
       type: 'session_start',
       sessionId: sessionId,
+      name: userInfo.displayName,
+      email: tgId,
       tgUsername: tgId,
       userId: userInfo.id || 'none',
-      name: userInfo.displayName, // Записываем в колонку Имя
-      email: tgId, // Записываем в колонку Email для видимости
-      utmSource: newSession.utmSource,
+      username: userInfo.username,
+      utmSource: params.get('utm_source') || 'direct',
       dateStr: formatNow()
     });
 
@@ -168,16 +137,17 @@ export const analyticsService = {
   },
 
   updateSessionPath: async (sessionId: string, path: string) => {
-    if (!sessionId) return;
     const userInfo = getDetailedTgUser();
+    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'unknown');
+    
     await sendToScript({
       action: 'log',
       type: 'path_update',
-      sessionId: sessionId,
-      tgUsername: userInfo.primaryId,
-      userId: userInfo.id || 'none',
-      name: `Переход: ${path}`, // Отображаем активность в Имени
+      sessionId: sId,
+      name: `Переход: ${path}`,
       email: userInfo.primaryId,
+      tgUsername: userInfo.primaryId,
+      path: path,
       dateStr: formatNow()
     });
   }
