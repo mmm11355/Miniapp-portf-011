@@ -226,10 +226,10 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-3 mx-2">
-             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
-             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
-             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
-             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
+             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
+             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
+             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
+             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
           </div>
 
           <div className="px-2 pt-2">
@@ -339,7 +339,7 @@ const App: React.FC = () => {
               <button 
                 key={c} 
                 onClick={() => setFilter(c)} 
-                className={`px-5 py-3 rounded-xl text-[14px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
+                className={`px-5 py-3 rounded-xl text-[15px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
                   filter === c 
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
                     : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'

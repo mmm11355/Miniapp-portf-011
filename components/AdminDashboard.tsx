@@ -156,7 +156,7 @@ const AdminDashboard: React.FC = () => {
     const processed = filteredOrders.map(o => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
-      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал)/i.test(sRaw);
+      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire)/i.test(sRaw);
       return { 
         ...o, 
         pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
@@ -185,62 +185,62 @@ const AdminDashboard: React.FC = () => {
   }, [filteredStats.allOrders, activeTab]);
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-500 pb-10 max-w-md mx-auto">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10 max-w-md mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center px-1">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-          <h2 className="text-[14px] font-bold uppercase tracking-widest text-slate-400">Управление</h2>
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse" />
+          <h2 className="text-[16px] font-black uppercase tracking-widest text-slate-500">Управление</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-300 uppercase">{lastUpdated}</span>
-          <button onClick={() => setShowConfig(!showConfig)} className={`p-2 rounded-lg transition-all ${showConfig ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}><Settings size={16} /></button>
-          <button onClick={() => fetchData()} className="p-2 text-slate-400 active:rotate-180 transition-transform"><RefreshCw size={16} className={loading ? 'animate-spin' : ''}/></button>
+        <div className="flex items-center gap-3">
+          <span className="text-[12px] font-black text-slate-300 uppercase">{lastUpdated}</span>
+          <button onClick={() => setShowConfig(!showConfig)} className={`p-3 rounded-xl transition-all ${showConfig ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 bg-slate-100'}`}><Settings size={18} /></button>
+          <button onClick={() => fetchData()} className="p-3 text-slate-400 bg-slate-100 rounded-xl active:rotate-180 transition-transform"><RefreshCw size={18} className={loading ? 'animate-spin' : ''}/></button>
         </div>
       </div>
 
       {showConfig && (
-        <div className="bg-white p-5 rounded-2xl border border-indigo-50 shadow-xl space-y-3 mx-1 animate-in slide-in-from-top duration-300">
-           <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-widest">Конфигурация API</p>
-           <input className="w-full bg-slate-50 p-3 rounded-lg text-[13px] font-semibold border border-slate-100 outline-none" value={config.googleSheetWebhook} onChange={e => setConfig({...config, googleSheetWebhook: e.target.value})} placeholder="Webhook URL" />
-           <button onClick={() => {localStorage.setItem('olga_tg_config', JSON.stringify(config)); setShowConfig(false); fetchData();}} className="w-full bg-indigo-600 text-white py-3 rounded-lg text-[11px] font-bold uppercase tracking-widest shadow-md">Применить</button>
+        <div className="bg-white p-6 rounded-[2rem] border border-indigo-50 shadow-2xl space-y-4 mx-1 animate-in slide-in-from-top duration-300">
+           <p className="text-[13px] font-black text-indigo-500 uppercase tracking-widest">Конфигурация API</p>
+           <input className="w-full bg-slate-50 p-4 rounded-2xl text-[14px] font-bold border border-slate-100 outline-none focus:bg-white transition-all" value={config.googleSheetWebhook} onChange={e => setConfig({...config, googleSheetWebhook: e.target.value})} placeholder="Webhook URL" />
+           <button onClick={() => {localStorage.setItem('olga_tg_config', JSON.stringify(config)); setShowConfig(false); fetchData();}} className="w-full bg-indigo-600 text-white py-4 rounded-2xl text-[13px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Применить настройки</button>
         </div>
       )}
 
       {/* Period Selector */}
-      <div className="flex bg-slate-200/40 p-1.5 rounded-xl mx-1">
+      <div className="flex bg-slate-200/40 p-1.5 rounded-2xl mx-1">
         {(['today', '7days', 'month', 'all'] as Period[]).map((p) => (
-          <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase transition-all ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
+          <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase transition-all ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
             {p === 'today' ? 'День' : p === '7days' ? '7 Дн' : p === 'month' ? 'Мес' : 'Всё'}
           </button>
         ))}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 px-1">
-        <div className="bg-white p-5 rounded-2xl border border-slate-50 shadow-sm">
-          <p className="text-[12px] font-bold text-slate-400 uppercase mb-1">Визиты</p>
-          <p className="text-xl font-bold text-slate-800">{filteredStats.visits}</p>
+      <div className="grid grid-cols-2 gap-4 px-1">
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+          <p className="text-[13px] font-black text-slate-400 uppercase mb-2">Визиты</p>
+          <p className="text-2xl font-black text-slate-800">{filteredStats.visits}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-50 shadow-sm">
-          <p className="text-[12px] font-bold text-slate-400 uppercase mb-1">Оплачено</p>
-          <p className="text-xl font-bold text-emerald-500">{filteredStats.paidCount}</p>
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+          <p className="text-[13px] font-black text-slate-400 uppercase mb-2">Оплачено</p>
+          <p className="text-2xl font-black text-emerald-500">{filteredStats.paidCount}</p>
         </div>
       </div>
 
       {/* Geo */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-50 shadow-sm mx-1">
-        <h3 className="text-[12px] font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-          <MapPin size={12} className="text-rose-400" /> География визитов
+      <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm mx-1">
+        <h3 className="text-[14px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-3">
+          <MapPin size={18} className="text-rose-400" /> География визитов
         </h3>
-        <div className="space-y-3.5 max-h-40 overflow-y-auto no-scrollbar">
+        <div className="space-y-4 max-h-60 overflow-y-auto no-scrollbar">
           {filteredStats.geo.map(([key, count]) => (
             <div key={key}>
-              <div className="flex justify-between text-[13px] font-semibold text-slate-500 mb-1.5">
+              <div className="flex justify-between text-[15px] font-bold text-slate-500 mb-2">
                 <span className="truncate pr-4">{key}</span>
                 <span className="text-indigo-600">{count}</span>
               </div>
-              <div className="w-full h-1 bg-slate-50 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
                 <div className="h-full bg-indigo-200" style={{width: `${(count/filteredStats.visits)*100}%`}} />
               </div>
             </div>
@@ -249,33 +249,37 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Orders */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
-          <h3 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">Список заказов ({filteredStats.allOrders.length})</h3>
-          <div className="flex bg-slate-200/40 p-1 rounded-lg">
-            <button onClick={() => setActiveTab('active')} className={`px-5 py-2 rounded-md text-[11px] font-bold uppercase transition-all ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Актив</button>
-            <button onClick={() => setActiveTab('archive')} className={`px-5 py-2 rounded-md text-[11px] font-bold uppercase transition-all ${activeTab === 'archive' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>Архив</button>
+          <h3 className="text-[14px] font-black uppercase tracking-widest text-slate-400">Заказы ({filteredStats.allOrders.length})</h3>
+          <div className="flex bg-slate-200/40 p-1.5 rounded-2xl">
+            <button onClick={() => setActiveTab('active')} className={`px-6 py-2.5 rounded-xl text-[12px] font-black uppercase transition-all ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Актив</button>
+            <button onClick={() => setActiveTab('archive')} className={`px-6 py-2.5 rounded-xl text-[12px] font-black uppercase transition-all ${activeTab === 'archive' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>Архив</button>
           </div>
         </div>
-        <div className="space-y-3 px-1">
-          {displayList.map((o, i) => (
-            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-50 shadow-sm space-y-4 active:scale-[0.98] transition-all">
-              <div className="flex justify-between items-start gap-3">
-                <div className="space-y-1">
-                  <h4 className="text-[13px] font-bold text-slate-800 leading-tight">{o.dTitle}</h4>
-                  <p className="text-[11px] font-bold text-indigo-500 truncate max-w-[200px]">{o.dUser} ({o.dName})</p>
+        <div className="space-y-4 px-1">
+          {displayList.length === 0 ? (
+            <div className="py-10 text-center text-slate-300 font-bold uppercase text-[12px]">Пусто</div>
+          ) : (
+            displayList.map((o, i) => (
+              <div key={i} className="bg-white p-6 rounded-[2.5rem] border border-slate-50 shadow-sm space-y-5 active:scale-[0.98] transition-all">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="space-y-1.5">
+                    <h4 className="text-[15px] font-black text-slate-800 leading-tight">{o.dTitle}</h4>
+                    <p className="text-[13px] font-bold text-indigo-500 truncate max-w-[220px]">{o.dUser} ({o.dName})</p>
+                  </div>
+                  <div className="text-[16px] font-black text-slate-900 whitespace-nowrap">{o.dPrice} ₽</div>
                 </div>
-                <div className="text-[14px] font-bold text-slate-900 whitespace-nowrap">{o.dPrice} ₽</div>
-              </div>
-              <div className="flex items-center justify-between border-t border-slate-50 pt-3">
-                <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${o.pStatus === 'paid' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${o.pStatus === 'paid' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-amber-400 animate-pulse'}`} />
-                  {o.pLabel}
+                <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+                  <div className={`flex items-center gap-3 text-[11px] font-black uppercase tracking-widest ${o.pStatus === 'paid' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    <div className={`w-2 h-2 rounded-full ${o.pStatus === 'paid' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-400 animate-pulse'}`} />
+                    {o.pLabel}
+                  </div>
+                  <div className="text-[11px] font-black text-slate-300 uppercase">{String(o.dDate).split(',')[0]}</div>
                 </div>
-                <div className="text-[10px] font-bold text-slate-300 uppercase">{String(o.dDate).split(',')[0]}</div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
