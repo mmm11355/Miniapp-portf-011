@@ -213,33 +213,33 @@ const App: React.FC = () => {
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
       {view === 'home' && (
-        <div className="space-y-4 text-center py-2 animate-in fade-in duration-700">
+        <div className="space-y-6 text-center py-4 animate-in fade-in duration-700">
           <div className="relative inline-block mt-2">
             <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full scale-125" />
-            <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-28 h-28 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" />
+            <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-36 h-36 mx-auto rounded-full shadow-2xl border-4 border-white object-cover" />
           </div>
           
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
-            <p className="text-[12px] font-black text-indigo-600 uppercase tracking-widest leading-none">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
+            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
+            <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
 
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-50 text-left space-y-1.5 mx-2">
-             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><Trophy size={16} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
-             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><Award size={16} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
-             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700"><BriefcaseIcon size={16} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
-             <div className="flex items-center gap-3 text-[10px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={16} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-3 mx-2">
+             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
+             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
+             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
+             <div className="flex items-center gap-4 text-[15px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
           </div>
 
-          <div className="px-2 pt-1">
-            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-5 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
+          <div className="px-2 pt-2">
+            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               <div className="flex flex-col items-start relative z-10">
                 <span className="text-[14px] font-black uppercase tracking-widest">Нужна помощь?</span>
-                <span className="text-[9px] font-bold opacity-80 uppercase tracking-tight">Связаться в Telegram</span>
+                <span className="text-[10px] font-bold opacity-80 uppercase tracking-tight">Связаться в Telegram</span>
               </div>
-              <Send size={22} className="relative z-10 opacity-60" />
+              <Send size={24} className="relative z-10 opacity-60" />
             </button>
           </div>
         </div>
@@ -317,8 +317,8 @@ const App: React.FC = () => {
       {view === 'portfolio' && (
         <div className="space-y-6 animate-in slide-in-from-right duration-500">
           <div className="flex bg-slate-200/40 p-1 rounded-2xl mx-1">
-            <button onClick={() => setPortfolioTab('cases')} className={`flex-1 py-2.5 rounded-xl text-[9px] font-bold uppercase transition-all ${portfolioTab === 'cases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Кейсы</button>
-            <button onClick={() => setPortfolioTab('bonuses')} className={`flex-1 py-2.5 rounded-xl text-[9px] font-bold uppercase transition-all ${portfolioTab === 'bonuses' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Бонусы</button>
+            <button onClick={() => setPortfolioTab('cases')} className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'cases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Кейсы</button>
+            <button onClick={() => setPortfolioTab('bonuses')} className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'bonuses' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Бонусы</button>
           </div>
           <div className="grid gap-6">
             {(portfolioTab === 'cases' ? portfolioItems : bonuses).map(p => (
@@ -339,7 +339,7 @@ const App: React.FC = () => {
               <button 
                 key={c} 
                 onClick={() => setFilter(c)} 
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
+                className={`px-5 py-3 rounded-xl text-[14px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
                   filter === c 
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
                     : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'
