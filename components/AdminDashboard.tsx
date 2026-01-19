@@ -1,0 +1,286 @@
+
+import React, { useMemo, useState, useEffect } from 'react';
+import { RefreshCw, Clock, CheckCircle, AlertCircle, MapPin, Settings, Trash2, Users, ChevronRight } from 'lucide-react';
+import { analyticsService } from '../services/analyticsService';
+
+type Period = 'today' | '7days' | 'month' | 'all';
+
+const DEFAULTS = {
+  botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58',
+  chatId: '-1002095569247',
+  googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec'
+};
+
+const AdminDashboard: React.FC = () => {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'archive'>('active');
+  const [period, setPeriod] = useState<Period>('all'); 
+  const [showConfig, setShowConfig] = useState(false);
+  
+  // Локальное хранилище обработанных ID, чтобы не спамить в бот
+  const [processedIds] = useState(() => new Set<string>());
+  
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('olga_tg_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          botToken: parsed.botToken || DEFAULTS.botToken,
+          chatId: parsed.chatId || DEFAULTS.chatId,
+          googleSheetWebhook: parsed.googleSheetWebhook || DEFAULTS.googleSheetWebhook
+        };
+      }
+    } catch (e) {}
+    return DEFAULTS;
+  });
+
+  const getVal = (obj: any, key: string) => {
+    if (!obj || typeof obj !== 'object') return null;
+    const aliases: Record<string, string[]> = {
+      'title': ['producttitle', 'товар', 'название', 'product', 'title'],
+      'price': ['price', 'сумма', 'стоимость', 'цена', 'amount'],
+      'status': ['paymentstatus', 'статус', 'status', 'состояние', 'payment_status'],
+      'name': ['customername', 'имя', 'клиент', 'фио', 'name'],
+      'date': ['timestamp', 'дата', 'date', 'время', 'starttime'],
+      'city': ['city', 'город'],
+      'country': ['country', 'страна'],
+      'username': ['username', 'tgusername', 'ник'],
+      'orderId': ['orderid', 'id']
+    };
+    const searchKeys = aliases[key] || [key];
+    const objKeys = Object.keys(obj);
+    for (const sKey of searchKeys) {
+      const found = objKeys.find(ok => {
+        const cleanOk = ok.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+        const cleanSk = sKey.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+        return cleanOk === cleanSk || cleanOk.includes(cleanSk);
+      });
+      if (found) return obj[found];
+    }
+    return obj[key];
+  };
+
+  const parseSafeDate = (dateVal: any): number => {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    const str = String(dateVal).trim();
+    const dmyMatch = str.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (dmyMatch) {
+      const [_, d, m, y] = dmyMatch;
+      const timePart = str.split(',')[1]?.trim() || '00:00:00';
+      const isoStr = `${y}-${m}-${d}T${timePart.replace(/\s/g, '')}`;
+      const ts = Date.parse(isoStr);
+      if (!isNaN(ts)) return ts;
+    }
+    const isoTs = Date.parse(str);
+    return isNaN(isoTs) ? 0 : isoTs;
+  };
+
+  const fetchData = async (silent = false) => {
+    const webhook = config.googleSheetWebhook || DEFAULTS.googleSheetWebhook;
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch(`${webhook}?action=getStats&_t=${Date.now()}`, { 
+        method: 'GET', redirect: 'follow', cache: 'no-store'
+      });
+      const data: any = await res.json();
+      if (data) {
+        const fetchedSessions = data.sessions || data.data?.sessions || [];
+        const fetchedOrders = data.orders || data.data?.orders || (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+        
+        setSessions(fetchedSessions);
+        setOrders(fetchedOrders);
+
+        const now = Date.now();
+        const tenMinutes = 10 * 60 * 1000;
+        const oneHour = 60 * 60 * 1000; // Ограничение, чтобы не трогать старые записи в таблице
+        
+        fetchedOrders.forEach(async (o: any) => {
+          const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
+          const isPending = sRaw.includes('ожид') || sRaw === 'pending' || sRaw === '';
+          const ts = parseSafeDate(getVal(o, 'date'));
+          const orderId = String(getVal(o, 'orderId') || '');
+
+          // УСЛОВИЕ: Ожидание, больше 10 мин, но МЕНЬШЕ 1 часа, и мы еще не обрабатывали это в текущей сессии
+          if (isPending && ts > 0 && (now - ts) > tenMinutes && (now - ts) < oneHour && orderId && !processedIds.has(orderId)) {
+            processedIds.add(orderId);
+            await analyticsService.updateOrderStatus(orderId, 'failed');
+          }
+        });
+      }
+      setLastUpdated(new Date().toLocaleTimeString('ru-RU'));
+    } catch (e: any) {
+      setError(`Сбой: ${e.message}`);
+    } finally { if (!silent) setLoading(false); }
+  };
+
+  useEffect(() => { 
+    fetchData();
+    const interval = setInterval(() => fetchData(true), 30000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredStats = useMemo(() => {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    let threshold = 0;
+    if (period === 'today') threshold = now - day;
+    else if (period === '7days') threshold = now - 7 * day;
+    else if (period === 'month') threshold = now - 30 * day;
+
+    const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
+    const filteredOrders = orders.filter(o => period === 'all' || parseSafeDate(getVal(o, 'date')) > threshold);
+
+    const sessionMap: Record<string, any> = {};
+    filteredSessions.forEach(s => {
+      const sid = String(getVal(s, 'sessionId') || `v-${parseSafeDate(getVal(s, 'date'))}`);
+      if (!sessionMap[sid]) {
+        sessionMap[sid] = { 
+          country: String(getVal(s, 'country') || 'Unknown'), 
+          city: String(getVal(s, 'city') || 'Unknown'),
+          user: String(getVal(s, 'username') || 'Гость')
+        };
+      }
+    });
+
+    const geoStats: Record<string, number> = {};
+    Object.values(sessionMap).forEach((s: any) => {
+      const key = `${s.country !== 'Unknown' ? s.country : ''}${s.city !== 'Unknown' ? ', ' + s.city : ''} — ${s.user}`;
+      geoStats[key] = (geoStats[key] || 0) + 1;
+    });
+
+    const processed = filteredOrders.map(o => {
+      const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
+      const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
+      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал)/i.test(sRaw);
+      return { 
+        ...o, 
+        pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
+        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание оплаты' : 'Новый')),
+        dTitle: getVal(o, 'title') || 'Заказ',
+        dPrice: getVal(o, 'price') || 0,
+        dName: getVal(o, 'name') || 'Гость',
+        dUser: getVal(o, 'username') || '',
+        dDate: getVal(o, 'date') || '---'
+      };
+    });
+
+    return {
+      visits: Object.keys(sessionMap).length,
+      paidCount: processed.filter(o => o.pStatus === 'paid').length,
+      allOrders: processed,
+      geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
+    };
+  }, [sessions, orders, period]);
+
+  const displayList = useMemo(() => {
+    const list = activeTab === 'active' 
+      ? filteredStats.allOrders.filter(o => o.pStatus !== 'failed')
+      : filteredStats.allOrders.filter(o => o.pStatus === 'failed');
+    return [...list].sort((a,b) => parseSafeDate(b.dDate) - parseSafeDate(a.dDate));
+  }, [filteredStats.allOrders, activeTab]);
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-500 pb-10 max-w-md mx-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center px-1">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+          <h2 className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Управление</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-bold text-slate-300 uppercase">{lastUpdated}</span>
+          <button onClick={() => setShowConfig(!showConfig)} className={`p-2 rounded-lg transition-all ${showConfig ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}><Settings size={14} /></button>
+          <button onClick={() => fetchData()} className="p-2 text-slate-400 active:rotate-180 transition-transform"><RefreshCw size={14} className={loading ? 'animate-spin' : ''}/></button>
+        </div>
+      </div>
+
+      {showConfig && (
+        <div className="bg-white p-4 rounded-2xl border border-indigo-50 shadow-xl space-y-3 mx-1 animate-in slide-in-from-top duration-300">
+           <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">Конфигурация API</p>
+           <input className="w-full bg-slate-50 p-2.5 rounded-lg text-[10px] font-semibold border border-slate-100 outline-none" value={config.googleSheetWebhook} onChange={e => setConfig({...config, googleSheetWebhook: e.target.value})} placeholder="Webhook URL" />
+           <button onClick={() => {localStorage.setItem('olga_tg_config', JSON.stringify(config)); setShowConfig(false); fetchData();}} className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-widest shadow-md">Применить</button>
+        </div>
+      )}
+
+      {/* Period Selector */}
+      <div className="flex bg-slate-200/40 p-1 rounded-xl mx-1">
+        {(['today', '7days', 'month', 'all'] as Period[]).map((p) => (
+          <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-2 rounded-lg text-[8px] font-bold uppercase transition-all ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
+            {p === 'today' ? 'День' : p === '7days' ? '7 Дн' : p === 'month' ? 'Мес' : 'Всё'}
+          </button>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 px-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm">
+          <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">Визиты</p>
+          <p className="text-lg font-bold text-slate-800">{filteredStats.visits}</p>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm">
+          <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">Оплачено</p>
+          <p className="text-lg font-bold text-emerald-500">{filteredStats.paidCount}</p>
+        </div>
+      </div>
+
+      {/* Geo */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm mx-1">
+        <h3 className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
+          <MapPin size={10} className="text-rose-400" /> География визитов
+        </h3>
+        <div className="space-y-2.5 max-h-32 overflow-y-auto no-scrollbar">
+          {filteredStats.geo.map(([key, count]) => (
+            <div key={key}>
+              <div className="flex justify-between text-[9px] font-semibold text-slate-500 mb-1">
+                <span className="truncate pr-4">{key}</span>
+                <span className="text-indigo-600">{count}</span>
+              </div>
+              <div className="w-full h-0.5 bg-slate-50 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-200" style={{width: `${(count/filteredStats.visits)*100}%`}} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Orders */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Список заказов ({filteredStats.allOrders.length})</h3>
+          <div className="flex bg-slate-200/40 p-0.5 rounded-lg">
+            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-md text-[8px] font-bold uppercase transition-all ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Актив</button>
+            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1.5 rounded-md text-[8px] font-bold uppercase transition-all ${activeTab === 'archive' ? 'bg-white text-rose-500 shadow-sm' : 'text-slate-400'}`}>Архив</button>
+          </div>
+        </div>
+        <div className="space-y-2.5 px-1">
+          {displayList.map((o, i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-50 shadow-sm space-y-3 active:scale-[0.98] transition-all">
+              <div className="flex justify-between items-start gap-3">
+                <div className="space-y-0.5">
+                  <h4 className="text-[11px] font-bold text-slate-800 leading-tight">{o.dTitle}</h4>
+                  <p className="text-[9px] font-bold text-indigo-500 truncate max-w-[200px]">{o.dUser} ({o.dName})</p>
+                </div>
+                <div className="text-[12px] font-bold text-slate-900 whitespace-nowrap">{o.dPrice} ₽</div>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-50 pt-2.5">
+                <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${o.pStatus === 'paid' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  <div className={`w-1 h-1 rounded-full ${o.pStatus === 'paid' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-amber-400 animate-pulse'}`} />
+                  {o.pLabel}
+                </div>
+                <div className="text-[8px] font-bold text-slate-300 uppercase">{String(o.dDate).split(',')[0]}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;

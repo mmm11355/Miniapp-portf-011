@@ -1,0 +1,7 @@
+{
+  "name": "РВ МИНИАПП Ольга Антонова | GetCourse & Prodamus",
+  "description": "Мини-апп для заказа технических решений и просмотра кейсов Ольги Антоновой с интеграцией в Google Таблицы. 2 вариант",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
