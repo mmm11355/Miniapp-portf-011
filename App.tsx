@@ -51,10 +51,10 @@ const App: React.FC = () => {
   const fetchUserAccess = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userIdentifier.trim())}`);
+      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userIdentifier.trim())}&_t=${Date.now()}`);
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.access)) {
-        // Добавлен trim для каждого ID, чтобы пробелы в таблице не мешали
+        // Принудительная очистка от пробелов ID из таблицы
         setUserPurchasedIds(data.access.map(item => String(item).trim()));
       }
     } catch (e) {}
@@ -76,7 +76,7 @@ const App: React.FC = () => {
             try { gallery = typeof (p.detailgallery) === 'string' ? JSON.parse(p.detailgallery) : (p.detailgallery || []); } catch (e) {}
             return {
               ...p,
-              id: p.id ? String(p.id).trim() : `row-${index + 2}`, // Добавлен trim для ID товара
+              id: p.id ? String(p.id).trim() : `row-${index + 2}`,
               title: p.title || p.название || 'Товар',
               description: p.description || p.описание || '',
               category: p.category || p.категория || 'Общее',
@@ -137,6 +137,7 @@ const App: React.FC = () => {
     setCheckoutProduct(null);
     setView(newView); 
     window.scrollTo(0, 0); 
+    // При каждом переходе в "МОИ" проверяем доступы из таблицы заново
     if (newView === 'account') fetchUserAccess();
   };
 
@@ -228,10 +229,18 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-3 mx-2">
-             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
-             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
-             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
-             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
+             <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> <span className="whitespace-nowrap">Победитель Хакатона EdMarket</span></div>
+             <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> <span className="whitespace-nowrap">Специалист GetCourse и Prodamus.XL</span></div>
+             <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> <span className="whitespace-nowrap">60+ реализованных проектов</span></div>
+             
+             {/* Исправленная строка портфолио: без переносов, в одну линию */}
+             <div className="flex flex-row items-center justify-between gap-2 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700 w-full cursor-pointer overflow-hidden" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Globe size={18} className="text-indigo-400 shrink-0" />
+                  <span className="whitespace-nowrap">Сайт-портфолио</span>
+                </div>
+                <span className="text-indigo-600 underline whitespace-nowrap ml-auto">vk.cc/cOx50S</span>
+             </div>
           </div>
 
           <div className="px-2 pt-2">
