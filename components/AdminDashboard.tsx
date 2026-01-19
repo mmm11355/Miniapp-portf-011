@@ -156,7 +156,9 @@ const AdminDashboard: React.FC = () => {
     const processed = filteredOrders.map(o => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
-      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire)/i.test(sRaw);
+      // Расширенный список признаков отмены
+      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire|not|unpaid)/i.test(sRaw);
+      
       return { 
         ...o, 
         pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),

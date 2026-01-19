@@ -339,7 +339,7 @@ const App: React.FC = () => {
               <button 
                 key={c} 
                 onClick={() => setFilter(c)} 
-                className={`px-5 py-3 rounded-xl text-[15px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
+                className={`px-4 py-2 rounded-xl text-[12px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
                   filter === c 
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
                     : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'
