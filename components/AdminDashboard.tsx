@@ -157,7 +157,7 @@ const AdminDashboard: React.FC = () => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
       // Расширенный список признаков отмены
-      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire|not|unpaid)/i.test(sRaw);
+      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire|not|unpaid|нет|пусто)/i.test(sRaw);
       
       return { 
         ...o, 

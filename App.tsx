@@ -48,6 +48,18 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
+  const fetchUserAccess = useCallback(async () => {
+    if (!telegramConfig.googleSheetWebhook) return;
+    try {
+      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userIdentifier.trim())}`);
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.access)) {
+        // Добавлен trim для каждого ID, чтобы пробелы в таблице не мешали
+        setUserPurchasedIds(data.access.map(item => String(item).trim()));
+      }
+    } catch (e) {}
+  }, [userIdentifier, telegramConfig.googleSheetWebhook]);
+
   const syncWithCloud = useCallback(async (showLoading = false) => {
     if (!telegramConfig.googleSheetWebhook) return;
     if (showLoading) setIsSyncing(true);
@@ -64,7 +76,7 @@ const App: React.FC = () => {
             try { gallery = typeof (p.detailgallery) === 'string' ? JSON.parse(p.detailgallery) : (p.detailgallery || []); } catch (e) {}
             return {
               ...p,
-              id: p.id ? String(p.id) : `row-${index + 2}`,
+              id: p.id ? String(p.id).trim() : `row-${index + 2}`, // Добавлен trim для ID товара
               title: p.title || p.название || 'Товар',
               description: p.description || p.описание || '',
               category: p.category || p.категория || 'Общее',
@@ -88,28 +100,17 @@ const App: React.FC = () => {
           });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
+        fetchUserAccess();
       }
     } catch (e) {} finally { if (showLoading) setIsSyncing(false); }
-  }, [telegramConfig.googleSheetWebhook]);
-
-  const fetchUserAccess = useCallback(async () => {
-    if (!telegramConfig.googleSheetWebhook) return;
-    try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userIdentifier)}`);
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.access)) {
-        setUserPurchasedIds(data.access.map(String));
-      }
-    } catch (e) {}
-  }, [userIdentifier, telegramConfig.googleSheetWebhook]);
+  }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     syncWithCloud(true);
-    fetchUserAccess();
     analyticsService.startSession();
-  }, [syncWithCloud, fetchUserAccess]);
+  }, [syncWithCloud]);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -136,6 +137,7 @@ const App: React.FC = () => {
     setCheckoutProduct(null);
     setView(newView); 
     window.scrollTo(0, 0); 
+    if (newView === 'account') fetchUserAccess();
   };
 
   const isFree = useMemo(() => {
@@ -226,10 +228,10 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-50 text-left space-y-3 mx-2">
-             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
-             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
-             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
-             <div className="flex items-center gap-4 text-[15px] min-[501px]:text-[12px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
+             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><Trophy size={18} className="text-amber-500 shrink-0" /> Победитель Хакатона EdMarket</div>
+             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> Специалист GetCourse и Prodamus.XL</div>
+             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 60+ реализованных проектов</div>
+             <div className="flex items-center gap-4 text-[14px] min-[501px]:text-[11px] font-bold text-slate-700" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}><Globe size={18} className="text-indigo-400 shrink-0" /> Сайт-портфолио <span className="text-indigo-600 underline">vk.cc/cOx50S</span></div>
           </div>
 
           <div className="px-2 pt-2">
