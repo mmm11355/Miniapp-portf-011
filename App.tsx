@@ -51,11 +51,12 @@ const App: React.FC = () => {
   const fetchUserAccess = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userIdentifier.trim())}&_t=${Date.now()}`);
+      // Принудительно указываем лист Permissions и делаем запрос к нему
+      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(userIdentifier.trim())}&_t=${Date.now()}`);
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.access)) {
-        // Принудительная очистка от пробелов ID из таблицы
-        setUserPurchasedIds(data.access.map(item => String(item).trim()));
+        // Сохраняем все ID из таблицы в нижнем регистре для корректного сравнения
+        setUserPurchasedIds(data.access.map(item => String(item).trim().toLowerCase()));
       }
     } catch (e) {}
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
@@ -64,7 +65,8 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     if (showLoading) setIsSyncing(true);
     try {
-      const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&_t=${Date.now()}`, { redirect: 'follow' });
+      // Принудительно запрашиваем данные из вкладки Catalog
+      const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
       const rawData = await response.json();
       if (rawData && Array.isArray(rawData)) {
         const sanitizedData = rawData
@@ -122,11 +124,12 @@ const App: React.FC = () => {
   const portfolioItems = useMemo(() => products.filter(p => p.section === 'portfolio'), [products]);
   const bonuses = useMemo(() => products.filter(p => p.section === 'bonus'), [products]);
   
+  // Улучшенная логика фильтрации купленных товаров (регистронезависимая и по листу Catalog)
   const purchasedProducts = useMemo(() => {
-    return products.filter(p => 
-      userPurchasedIds.includes(String(p.id)) || 
-      userPurchasedIds.includes('all')
-    );
+    return products.filter(p => {
+      const pId = String(p.id).trim().toLowerCase();
+      return userPurchasedIds.includes(pId) || userPurchasedIds.includes('all');
+    });
   }, [products, userPurchasedIds]);
 
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
@@ -137,7 +140,6 @@ const App: React.FC = () => {
     setCheckoutProduct(null);
     setView(newView); 
     window.scrollTo(0, 0); 
-    // При каждом переходе в "МОИ" проверяем доступы из таблицы заново
     if (newView === 'account') fetchUserAccess();
   };
 
@@ -233,9 +235,9 @@ const App: React.FC = () => {
              <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><Award size={18} className="text-indigo-500 shrink-0" /> <span className="whitespace-nowrap">Специалист GetCourse и Prodamus.XL</span></div>
              <div className="flex items-center gap-4 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700"><BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> <span className="whitespace-nowrap">60+ реализованных проектов</span></div>
              
-             {/* Исправленная строка портфолио: без переносов, в одну линию */}
-             <div className="flex flex-row items-center justify-between gap-2 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700 w-full cursor-pointer overflow-hidden" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
-                <div className="flex items-center gap-3 shrink-0">
+             {/* Исправленная строка: жесткая фиксация в один ряд без переносов */}
+             <div className="flex flex-row flex-nowrap items-center justify-between gap-2 text-[13px] min-[501px]:text-[10px] font-bold text-slate-700 w-full cursor-pointer overflow-hidden" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+                <div className="flex flex-row flex-nowrap items-center gap-3 shrink-0">
                   <Globe size={18} className="text-indigo-400 shrink-0" />
                   <span className="whitespace-nowrap">Сайт-портфолио</span>
                 </div>
