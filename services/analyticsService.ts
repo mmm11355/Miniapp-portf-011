@@ -20,7 +20,7 @@ export const getDetailedTgUser = () => {
     const fullName = `${firstName} ${lastName}`.trim();
 
     return {
-      primaryId: id || username || 'guest',
+      primaryId: username || id || 'guest',
       id: id,
       username: username,
       displayName: username || fullName || id || 'Гость'
@@ -95,11 +95,10 @@ export const analyticsService = {
       type: 'order',
       sessionId: currentSessionId || globalSessionId || 'unknown',
       orderId: newOrder.id,
-      name: newOrder.customerName,
-      email: newOrder.customerEmail,
+      name: `${newOrder.customerName} (${userInfo.displayName})`,
+      email: userInfo.primaryId,
       tgUsername: userInfo.primaryId,
       userId: userInfo.id || 'none',
-      user: userInfo.displayName,
       product: newOrder.productTitle,
       price: newOrder.price,
       utmSource: newOrder.utmSource,
@@ -159,7 +158,8 @@ export const analyticsService = {
       sessionId: sessionId,
       tgUsername: tgId,
       userId: userInfo.id || 'none',
-      user: userInfo.displayName,
+      name: userInfo.displayName, // Записываем в колонку Имя
+      email: tgId, // Записываем в колонку Email для видимости
       utmSource: newSession.utmSource,
       dateStr: formatNow()
     });
@@ -176,7 +176,8 @@ export const analyticsService = {
       sessionId: sessionId,
       tgUsername: userInfo.primaryId,
       userId: userInfo.id || 'none',
-      path: path,
+      name: `Переход: ${path}`, // Отображаем активность в Имени
+      email: userInfo.primaryId,
       dateStr: formatNow()
     });
   }

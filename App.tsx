@@ -248,13 +248,9 @@ const App: React.FC = () => {
       )}
 
       {view === 'account' && (
-        <div className="space-y-4 page-transition -mt-4">
-          <div className="flex items-center justify-between py-2 px-1">
-             <h2 className="text-[14px] font-black uppercase tracking-[0.1em] text-slate-800"></h2>
-          </div>
-          
-          <div className="py-4 text-center mb-2">
-             <h2 className="text-[20px] font-black text-slate-900 uppercase tracking-widest leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
+        <div className="space-y-4 page-transition -mt-2">
+          <div className="py-10 text-center mb-2">
+             <h2 className="text-[26px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
           </div>
 
           {purchasedProducts.length === 0 ? (
@@ -265,7 +261,7 @@ const App: React.FC = () => {
               <div className="space-y-5">
                 <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
                 <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-                  Здесь будут ваши купленные материалы из магазина, а также полезные бонусы. Перейдите в МАГАЗИН, чтобы выбрать решение.Доступ к материалам откроется в течении дня.
+                  Здесь будут ваши купленные материалы из магазина, а также полезные бонусы. Перейдите в МАГАЗИН, чтобы выбрать решение. Доступ к материалам откроется в течение дня.
                 </p>
               </div>
             </div>
@@ -291,13 +287,13 @@ const App: React.FC = () => {
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
             <button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><ChevronLeft size={20}/></button>
-            <span className="text-[10px] font-black uppercase text-slate-400 truncate px-4 tracking-[0.2em]">ПОДРОБНОСТИ</span>
+            <span className="text-[9px] font-black uppercase text-slate-400 truncate px-4 tracking-[0.2em]">ПОДРОБНОСТИ</span>
             <button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20}/></button>
           </div>
           <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32">
-             <h2 className="text-2xl font-black leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
+             <h2 className="text-[18px] font-black leading-snug text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} />
-             <div className="text-slate-600 text-[15px] leading-relaxed font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
+             <div className="text-slate-600 text-[14px] leading-snug font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
           </div>
           <div className="absolute bottom-6 left-0 right-0 z-[4600] px-6 flex justify-center">
             <button 
@@ -311,7 +307,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно секретного контента */}
+      {/* Остальное без изменений */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
