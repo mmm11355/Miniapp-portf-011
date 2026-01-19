@@ -109,8 +109,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Небольшая задержка, чтобы WebApp SDK успел инициализироваться
-      await new Promise(r => setTimeout(r, 200));
+      // 500ms задержка — золотой стандарт для 100% готовности WebApp SDK
+      await new Promise(r => setTimeout(r, 500));
       const userInfo = getDetailedTgUser();
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();

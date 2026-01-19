@@ -10,21 +10,36 @@ export const getDetailedTgUser = () => {
     if (tg) {
       tg.ready();
     }
-    const user = tg?.initDataUnsafe?.user;
-    
-    // Если объект user пуст (бывает при медленной загрузке), пробуем достать ID из initData
-    let id = user?.id ? String(user.id) : null;
+
+    // Попытка 1: Стандартный объект
+    let user = tg?.initDataUnsafe?.user;
+
+    // Попытка 2: Парсинг сырой строки (самый надежный метод для ID)
+    if (!user && tg?.initData) {
+      try {
+        const params = new URLSearchParams(tg.initData);
+        const userStr = params.get('user');
+        if (userStr) {
+          user = JSON.parse(userStr);
+        }
+      } catch (parseError) {
+        console.error("Ошибка парсинга initData:", parseError);
+      }
+    }
+
+    const id = user?.id ? String(user.id) : null;
     const username = user?.username ? `@${user.username}` : null;
     const firstName = user?.first_name || '';
     const lastName = user?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
-    // ГАРАНТИРОВАННЫЙ ID: если ника нет, ID становится главным идентификатором
-    const finalId = username || id || 'guest';
+    // ГАРАНТИРОВАННЫЙ ИДЕНТИФИКАТОР: Приоритет Ник -> ID -> guest
+    // Если ника нет, ID 1843449768 пойдет во все поля, и в таблице не будет Unknown
+    const finalIdentifier = username || id || 'guest';
 
     return {
-      primaryId: finalId, // Это пойдет в Email/Username
-      tg_id: id || finalId, // Это пойдет в ТГ ID
+      primaryId: finalIdentifier, 
+      tg_id: id || finalIdentifier,
       username: username || id || 'none',
       displayName: fullName || username || id || 'Пользователь'
     };
@@ -50,12 +65,14 @@ const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
   try {
+    // Очищаем payload от возможных undefined/null перед отправкой
+    const cleanPayload = JSON.parse(JSON.stringify(payload));
     await fetch(webhook, {
       method: 'POST',
       mode: 'no-cors',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(cleanPayload)
     });
   } catch (e) {}
 };
@@ -110,7 +127,6 @@ export const analyticsService = {
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
     
-    // Формируем sessionId аккуратно
     const safeId = tgId.replace(/[^a-zA-Z0-9]/g, '') || 'user';
     const sessionId = `${safeId}_${Math.random().toString(36).substr(2, 4)}`;
     globalSessionId = sessionId;
