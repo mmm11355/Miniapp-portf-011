@@ -335,9 +335,19 @@ const App: React.FC = () => {
 
       {view === 'shop' && (
         <div className="space-y-6 animate-in slide-in-from-left duration-500">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-5 px-5">
             {['All', ...categories].map(c => (
-              <button key={c} onClick={() => setFilter(c)} className={`px-5 py-2 rounded-full text-[9px] font-bold uppercase transition-all whitespace-nowrap ${filter === c ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 border border-slate-100'}`}>{c === 'All' ? 'Все' : c}</button>
+              <button 
+                key={c} 
+                onClick={() => setFilter(c)} 
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-all duration-200 whitespace-nowrap border ${
+                  filter === c 
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
+                    : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'
+                }`}
+              >
+                {c === 'All' ? 'Все' : c}
+              </button>
             ))}
           </div>
           

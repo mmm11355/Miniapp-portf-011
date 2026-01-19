@@ -51,7 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
               className="flex flex-col items-center justify-center gap-1 transition-all active:scale-90"
             >
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-400'}`}>
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon size={20} strokeWidth={2} />
               </div>
               <span className={`text-[8px] font-black tracking-widest uppercase ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
                 {item.label}
