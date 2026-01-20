@@ -50,8 +50,6 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     
     const userInfo = getDetailedTgUser();
-    
-    // Собираем варианты для проверки, включая forcedId (который мы передадим при старте)
     const rawIds = [
       forcedId,
       userInfo.username,
@@ -68,7 +66,7 @@ const App: React.FC = () => {
         .filter(id => id !== 'guest' && id !== 'none' && id !== '000000' && id !== 'undefined')
     ));
 
-    console.log("🔍 Проверка доступа для:", targetIds);
+    console.log("🔍 [Permissions] Проверка для:", targetIds);
 
     await Promise.all(targetIds.map(async (id) => {
       try {
@@ -80,11 +78,11 @@ const App: React.FC = () => {
           const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
           if (newAccess.length > 0) {
             setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            console.log(`✅ Доступ подтвержден для: ${id}`, newAccess);
+            console.log(`✅ [Access Found] для ${id}:`, newAccess);
           }
         }
       } catch (e) {
-        console.error("Ошибка запроса доступа:", e);
+        console.error("❌ [Access Error]:", e);
       }
     }));
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
@@ -128,7 +126,8 @@ const App: React.FC = () => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
-        // После загрузки каталога еще раз проверяем доступы
+        
+        // ВАЖНО: Сначала обновили каталог, потом сразу перепроверили доступы
         fetchUserAccess();
       }
     } catch (e) {}
@@ -136,8 +135,6 @@ const App: React.FC = () => {
 
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
-    
-    // ВАЖНО: Устанавливаем НИК немедленно
     setUserIdentifier(userInfo.username);
     
     analyticsService.startSession().then(sid => {
@@ -145,7 +142,6 @@ const App: React.FC = () => {
     });
 
     syncWithCloud();
-    // Проверяем доступ МГНОВЕННО по текущим данным, не дожидаясь состояния
     fetchUserAccess(userInfo.username);
     fetchUserAccess(userInfo.tg_id);
   }, []);
@@ -158,8 +154,16 @@ const App: React.FC = () => {
 
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
+      // ПРОВЕРКА: Либо ID совпадает, либо название товара содержится в списке доступов
       const pid = String(p.id).trim().toLowerCase();
-      return userPurchasedIds.includes(pid) || userPurchasedIds.includes('all');
+      const pTitle = String(p.title).trim().toLowerCase();
+      
+      const hasAccess = userPurchasedIds.some(accessId => {
+        const cleanAccess = String(accessId).trim().toLowerCase();
+        return cleanAccess === pid || cleanAccess === 'all' || pTitle.includes(cleanAccess) || cleanAccess.includes(pTitle);
+      });
+
+      return hasAccess;
     });
   }, [products, userPurchasedIds]);
 
