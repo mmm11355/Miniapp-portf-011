@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import Layout from './components/Layout';
 import AdminDashboard from './components/AdminDashboard';
@@ -39,7 +38,7 @@ const App: React.FC = () => {
     return { 
       botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58', 
       chatId: '-1002095569247',
-      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec'
+      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbzGjtnkk_7rGf5q0zS_iFEuhfJ5uW-HOBQBj6ECi41uVMB6WjF8drw3uw8rUZx-Ghyw/exec'
     };
   });
 
@@ -47,54 +46,41 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
-  const fetchUserAccess = useCallback(async (forcedId?: string) => {
+  // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА ---
+  const fetchUserAccess = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     setIsRefreshingAccess(true);
     
     const userInfo = getDetailedTgUser();
-    const variants = new Set<string>();
-    
-    if (forcedId) {
-      variants.add(String(forcedId).trim().toLowerCase());
-    }
+    // Извлекаем чистый ID и чистый Username (без @)
+    const userId = String(userInfo.tg_id || '').trim();
+    const username = String(userInfo.username || '').replace(/^@/, '').trim();
 
-    if (userInfo.username && userInfo.username !== '@guest') {
-      const pureNick = userInfo.username.replace(/^@/, '').toLowerCase();
-      variants.add(`@${pureNick}`);
-      variants.add(pureNick);
-    }
-    
-    if (userInfo.tg_id && userInfo.tg_id !== '000000') {
-      variants.add(String(userInfo.tg_id).trim());
-    }
-
-    const targetIds = Array.from(variants);
-    console.log("🔐 [AccessCheck] Проверка:", targetIds);
+    console.log("🔐 [AccessCheck] Запрос для:", { userId, username });
 
     try {
-      await Promise.all(targetIds.map(async (id) => {
-        try {
-          const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
-          const res = await fetch(url, { redirect: 'follow' });
-          const data = await res.json();
-          
-          if (data.status === 'success' && Array.isArray(data.access)) {
-            const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-            if (newAccess.length > 0) {
-              setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            }
-          }
-        } catch (e) {}
-      }));
+      // Отправляем запрос с обоими параметрами сразу
+      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}&_t=${Date.now()}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      const data = await res.json();
+      
+      if (data.status === 'success' && Array.isArray(data.access)) {
+        const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+        console.log("✅ Доступы получены:", newAccess);
+        setUserPurchasedIds(newAccess);
+      }
+    } catch (e) {
+      console.error("❌ Ошибка при получении доступа:", e);
     } finally {
       setIsRefreshingAccess(false);
     }
   }, [telegramConfig.googleSheetWebhook]);
 
+  // --- СИНХРОНИЗАЦИЯ КАТАЛОГА ---
   const syncWithCloud = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
-      const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
+      const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&_t=${Date.now()}`, { redirect: 'follow' });
       const rawData = await response.json();
       if (rawData && Array.isArray(rawData)) {
         const sanitizedData = rawData.filter((item: any) => (item.title || item.Title)).map((item: any, index: number) => {
@@ -137,7 +123,22 @@ const App: React.FC = () => {
 
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
-    setUserIdentifier(userInfo.username);
+    setUserIdentifier(userInfo.username || 'guest');
+    
+    // Автоматически отправляем данные о входе в Google Таблицу (Лист Sessions)
+    if (telegramConfig.googleSheetWebhook) {
+        fetch(telegramConfig.googleSheetWebhook, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({
+                type: 'session',
+                userId: userInfo.tg_id,
+                username: userInfo.username,
+                utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct'
+            })
+        });
+    }
+
     analyticsService.startSession().then(sid => {
       activeSessionId.current = sid;
     });
@@ -150,13 +151,13 @@ const App: React.FC = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
 
+  // --- ФИЛЬТР КУПЛЕННЫХ ТОВАРОВ ---
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
       const pid = String(p.id).trim().toLowerCase();
       return userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        // РАЗРЕШАЕМ ВСЁ: "all", полное совпадение или если ID из таблицы содержится в ID товара
-        return cleanAccess === 'all' || cleanAccess === pid || (cleanAccess.includes(pid) && pid.length > 0) || (pid.includes(cleanAccess) && cleanAccess.length > 0);
+        return cleanAccess === 'all' || cleanAccess === pid;
       });
     });
   }, [products, userPurchasedIds]);
@@ -411,12 +412,21 @@ const App: React.FC = () => {
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) return;
+              
+              const userInfo = getDetailedTgUser();
               const order = await analyticsService.logOrder({
-                productTitle: checkoutProduct.title, price: checkoutProduct.price, productId: checkoutProduct.id,
-                customerName, customerEmail, customerPhone: '---',
+                productTitle: checkoutProduct.title, 
+                price: checkoutProduct.price, 
+                productId: checkoutProduct.id,
+                customerName, 
+                customerEmail, 
+                customerPhone: '---',
                 utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
-                agreedToMarketing
+                agreedToMarketing,
+                userId: userInfo.tg_id, // Добавлено сохранение ID при заказе
+                tgUsername: userInfo.username
               } as any);
+              
               let paymentUrl = checkoutProduct.prodamusId?.startsWith('http') ? checkoutProduct.prodamusId : 'https://antol.payform.ru/';
               const connector = paymentUrl.includes('?') ? '&' : '?';
               paymentUrl += `${connector}order_id=${order.id}&customer_email=${encodeURIComponent(customerEmail)}`;
