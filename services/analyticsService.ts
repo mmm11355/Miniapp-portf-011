@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V36: ПРЕЦИЗИОННАЯ ГАРМОНИЯ
- * Решает конфликт SID в таблице Sessions и гарантирует чистоту вкладок.
+ * СУПЕРМОЗГ V37: ОКОНЧАТЕЛЬНЫЙ ПОРЯДОК
+ * Устраняет "кашу" в Sessions и нормализует передачу ника.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -57,7 +57,6 @@ export const getDetailedTgUser = () => {
 const sendToScript = async (payload: any) => {
   try {
     const userInfo = getDetailedTgUser();
-    
     const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
@@ -70,25 +69,29 @@ const sendToScript = async (payload: any) => {
     })();
 
     const freshUser = getDetailedTgUser();
-    const currentPath = payload.path || payload.city || (payload.type === 'session_start' ? 'home' : 'home');
+    // ГАРАНТИЯ: Вкладка всегда идет первой в данных
+    const currentTab = payload.path || payload.city || 'home';
 
-    // ОЧИЩАЕМ payload от sessionId перед созданием data, 
-    // чтобы Google Script не путал колонки
-    const { sessionId, ...restPayload } = payload;
-
+    // Собираем данные так, чтобы скрипт не путал колонки
     const data: any = {
-      ...restPayload,
-      sessionId: sessionId || '', // Передаем отдельно
-      city: currentPath,
-      path: currentPath,
-      page: currentPath,
-      vkladka: currentPath,
-      
+      vkladka: currentTab,
+      city: currentTab,
+      path: currentTab,
+      type: payload.type,
       tgUsername: freshUser.username,
-      utmSource: freshUser.username,
       userId: freshUser.tg_id,
-      dateStr: new Date().toLocaleString('ru-RU')
+      // sessionId в самом конце, чтобы не мешать основным полям
+      sid: payload.sessionId || '',
+      date: new Date().toLocaleString('ru-RU')
     };
+
+    // Если это заказ, добавляем поля заказа
+    if (payload.type === 'order') {
+      data.product = payload.product;
+      data.price = payload.price;
+      data.name = payload.name;
+      data.email = payload.email;
+    }
 
     fetch(webhook, {
       method: 'POST',
@@ -112,8 +115,6 @@ export const analyticsService = {
       price: order.price,
       name: order.customerName,
       email: order.customerEmail,
-      orderId: orderId,
-      paymentStatus: 'pending',
       tgUsername: userInfo.username
     });
     return { ...order, id: orderId };
