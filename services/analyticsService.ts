@@ -1,12 +1,12 @@
 
 /**
- * СУПЕРМОЗГ V20: ГАРАНТИРОВАННАЯ ЗАПИСЬ В ТАБЛИЦУ
- * Используем GET для обхода любых блокировок Google.
+ * СУПЕРМОЗГ V21: ОКОНЧАТЕЛЬНАЯ СИНХРОНИЗАЦИЯ С ТАБЛИЦЕЙ
+ * Фикс маппинга: название раздела -> Имя, Ник -> Email.
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v20';
+const CACHED_USER_KEY = 'olga_tg_final_v21';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 const FALLBACK_ID = '000000';
 
@@ -85,15 +85,27 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // ГАРАНТИРОВАННЫЙ МАППИНГ: пишем ник везде, где таблица может его ждать
+    // СТРОГИЙ МАППИНГ ПО ВАШЕМУ СКРИНШОТУ:
+    // Поле 'name' -> Колонка B (Имя)
+    // Поле 'email' -> Колонка C (Email)
+    let finalName = payload.name || userInfo.displayName || nick;
+    let finalEmail = payload.email || nick;
+
+    // Если это обновление пути (Session), пишем название раздела в "Имя", а ник в "Email"
+    if (payload.type === 'path_update' || payload.type === 'session_start') {
+      finalName = payload.city || payload.type; 
+      finalEmail = nick;
+    }
+
     const cleanPayload = {
       ...payload,
-      name: payload.name || userInfo.displayName || nick,
-      email: payload.email || nick,
-      city: payload.type === 'path_update' ? payload.city : nick,
+      action: 'log', // Добавляем действие для скрипта
+      name: finalName,
+      email: finalEmail,
+      city: payload.city || nick,
       country: nick,
       username: nick,
-      tgUsername: nick
+      _t: Date.now() // Анти-кэш
     };
 
     const query = new URLSearchParams();
@@ -105,8 +117,8 @@ const sendToScript = async (payload: any) => {
       query.append(key, v);
     });
 
-    // Используем GET вместо POST для 100% прохождения через CORS Google Apps Script
     const url = `${webhook}${webhook.includes('?') ? '&' : '?'}${query.toString()}`;
+    // Используем GET с no-cors - это 100% способ записи в Google Sheets
     await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-cache' });
   } catch (e) {}
 };
@@ -133,6 +145,7 @@ export const analyticsService = {
     await sendToScript({
       type: 'session_start',
       dateStr: new Date().toLocaleString('ru-RU'),
+      city: 'home', // Начальная точка
       sessionId: sid
     });
     return sid;
@@ -143,7 +156,7 @@ export const analyticsService = {
     await sendToScript({
       type: 'path_update',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: path, 
+      city: path, // Это пойдет в 'name' (Колонка B) благодаря логике в sendToScript
       sessionId: sid
     });
   },
