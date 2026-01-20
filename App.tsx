@@ -21,15 +21,12 @@ const App: React.FC = () => {
   const [userIdentifier, setUserIdentifier] = useState<string>('guest');
 
   // Запись переходов по вкладкам в таблицу Sessions (5-я колонка)
-  useEffect(() => {
-    if (userIdentifier && userIdentifier !== 'guest') {
-      analyticsService.rawSend({
-        action: 'logSession',
-        userId: userIdentifier,
-        path: view // Твоя переменная вкладок
-      });
-    }
-  }, [view, userIdentifier]);
+  
+    useEffect(() => {
+  if (userIdentifier && userIdentifier !== 'guest') {
+    fetchUserAccess(userIdentifier, "");
+  }
+}, [userIdentifier]);
   
 useEffect(() => {
   if (userIdentifier && userIdentifier !== 'guest') {
@@ -199,7 +196,7 @@ const syncWithCloud = useCallback(async () => {
     setView(newView);
     
     // Вместо userInfo?.username пиши так:
-    (typeof userInfo !== 'undefined' ? userInfo?.username : '')
+    if (newView === 'account') fetchUserAccess(userIdentifier, "");
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
