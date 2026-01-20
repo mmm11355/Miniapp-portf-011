@@ -44,48 +44,37 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
-  const fetchUserAccess = async (userId: string, username: string) => {
-  if (!telegramConfig.googleSheetWebhook) return;
-  
-  setIsRefreshingAccess(true);
-  
-  // Собираем варианты для поиска в таблице
-  const variants = new Set<string>();
-  if (userId) variants.add(userId.toString().toLowerCase());
-  if (username) {
-    variants.add(username.toLowerCase());
-    variants.add(username.replace('@', '').toLowerCase());
-  }
-  
-  const idsParam = Array.from(variants).join(',');
-  const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
-
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (data.status === 'success' && Array.isArray(data.access)) {
-      const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-      
-      // Записываем доступы (пробуем оба варианта стейта, если они у тебя есть)
-      if (typeof setUserPurchasedIds === 'function') setUserPurchasedIds(cleanAccess);
-      // @ts-ignore
-      if (typeof setUserAccess === 'function') setUserAccess(cleanAccess);
-      
-      console.log("Доступы подтверждены:", cleanAccess);
+ const fetchUserAccess = useCallback(async (userId: string, username: string) => {
+    if (!telegramConfig.googleSheetWebhook) return;
+    
+    setIsRefreshingAccess(true);
+    const variants = new Set<string>();
+    
+    if (userId) variants.add(userId.toString().toLowerCase());
+    if (username) {
+      variants.add(username.toLowerCase());
+      variants.add(username.replace('@', '').toLowerCase());
     }
-  } catch (e) {
-    console.error("Ошибка при проверке доступов:", e);
-  } finally {
-    setIsRefreshingAccess(false);
-  }
+    
+    const idsParam = Array.from(variants).join(',');
+    const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
 
- } catch (e) {
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.status === 'success' && Array.isArray(data.access)) {
+        const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+        setUserPurchasedIds(cleanAccess);
+        console.log("Доступы получены:", cleanAccess);
+      }
+    } catch (e) {
       console.error("Error fetching access:", e);
     } finally {
       setIsRefreshingAccess(false);
     }
-  }, [telegramConfig.googleSheetWebhook]); // Проверь, чтобы не было точек ПОСЛЕ скобки ]
+  }, [telegramConfig.googleSheetWebhook]); // Здесь закрывается useCallback
+ 
 
 const syncWithCloud = useCallback(async () => {
   // ... дальше твой код
