@@ -47,20 +47,45 @@ const App: React.FC = () => {
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
   const fetchUserAccess = useCallback(async (forcedId?: string) => {
-    const userInfo = getDetailedTgUser();
-    const targetIds = Array.from(new Set([forcedId, userInfo.tg_id, userInfo.username, userIdentifier].filter(Boolean) as string[]));
     if (!telegramConfig.googleSheetWebhook) return;
-    try {
-      for (const id of targetIds) {
-        if (!id || id === 'guest' || id === 'none' || id === '000000') continue;
-        const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`, { redirect: 'follow' });
+    
+    const userInfo = getDetailedTgUser();
+    // Собираем все варианты ID для проверки
+    const rawIds = [
+      forcedId, 
+      userInfo.tg_id, 
+      userInfo.username, 
+      userInfo.username?.replace(/^@/, ''), // Ник без собачки
+      `@${userInfo.username?.replace(/^@/, '')}`, // Ник точно с собачкой
+      userIdentifier
+    ];
+    
+    // Очищаем список от пустых и дубликатов
+    const targetIds = Array.from(new Set(
+      rawIds
+        .filter(Boolean)
+        .map(id => String(id).trim())
+        .filter(id => id !== 'guest' && id !== 'none' && id !== '000000')
+    ));
+
+    for (const id of targetIds) {
+      try {
+        const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
+        const res = await fetch(url, { redirect: 'follow' });
         const data = await res.json();
+        
         if (data.status === 'success' && Array.isArray(data.access)) {
           const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-          setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
+          if (newAccess.length > 0) {
+            setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
+            console.log(`✅ Доступ найден для ID: ${id}`, newAccess);
+          }
         }
+      } catch (e) {
+        console.error(`❌ Ошибка проверки ID ${id}:`, e);
+        // Не прерываем цикл, идем к следующему ID
       }
-    } catch (e) {}
+    }
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
 
   const syncWithCloud = useCallback(async () => {
@@ -107,20 +132,15 @@ const App: React.FC = () => {
     } catch (e) {}
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
-  // ГАРАНТИРОВАННЫЙ ЗАПУСК АНАЛИТИКИ
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
-    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
     setUserIdentifier(userInfo.tg_id);
     
-    // ПРЯМАЯ ОТПРАВКА СТАРТА
-    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
     analyticsService.startSession(userInfo.tg_id).then(sid => {
       activeSessionId.current = sid;
     });
 
     syncWithCloud();
-    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
     fetchUserAccess(userInfo.tg_id);
   }, []);
 
@@ -142,7 +162,6 @@ const App: React.FC = () => {
     
     if (newView === 'account') fetchUserAccess();
     
-    // ОТПРАВЛЯЕМ ПЕРЕХОД
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
