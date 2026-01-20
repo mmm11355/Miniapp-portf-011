@@ -123,22 +123,22 @@ const App: React.FC = () => {
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   useLayoutEffect(() => {
-    // 1. Активируем Telegram WebApp
+    // 1. Сообщаем Телеграму, что мы готовы
     if ((window as any).Telegram?.WebApp) {
       (window as any).Telegram.WebApp.ready();
     }
-    
-    // 2. Получаем детальные данные пользователя
+
+    // 2. Сразу берем данные пользователя
     const userInfo = getDetailedTgUser();
     
-    // 3. Отображаем ник или ID внизу (для визуальной проверки)
-    setUserIdentifier(userInfo.username !== '@guest' ? userInfo.username : `ID: ${userInfo.tg_id}`);
+    // 3. Выводим ник в ту самую серую надпись внизу (userIdentifier)
+    setUserIdentifier(userInfo.username);
 
-    // 4. Запускаем сессию аналитики ПЕРЕДАВАЯ данные пользователя (чтобы они ушли в таблицу)
-    analyticsService.startSession(userInfo).then(sid => {
+    // 4. Логируем вход в таблицу
+    analyticsService.startSession().then(sid => {
       activeSessionId.current = sid;
     });
-    
+
     syncWithCloud();
   }, []);
 
