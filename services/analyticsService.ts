@@ -1,8 +1,8 @@
 
 /**
- * СУПЕРМОЗГ V26: БЕЗОТКАЗНАЯ ПЕРЕДАЧА
- * Отправляем данные всеми возможными ключами одновременно.
- * Гарантируем заполнение колонок B, C, D и далее.
+ * СУПЕРМОЗГ V27: СПАСАТЕЛЬНАЯ ВЕРСИЯ
+ * Использует navigator.sendBeacon - самый надежный способ отправки аналитики.
+ * Гарантирует доставку даже при закрытии приложения.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -14,15 +14,15 @@ export const getDetailedTgUser = () => {
 
     let userData: any = null;
     
-    // 1. Прямой доступ
+    // 1. Из SDK
     if (tg?.initDataUnsafe?.user) {
       userData = tg.initDataUnsafe.user;
     }
 
-    // 2. Глубокий парсинг URL
+    // 2. Из URL (если Desktop)
     if (!userData) {
-      const search = window.location.search || window.location.hash;
-      const match = search.match(/user=({.*?})/);
+      const urlPart = window.location.hash || window.location.search;
+      const match = urlPart.match(/user=({.*?})/);
       if (match) {
         try { userData = JSON.parse(decodeURIComponent(match[1])); } catch (e) {}
       }
@@ -32,9 +32,9 @@ export const getDetailedTgUser = () => {
     const username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : (userData?.id ? `@id${userData.id}` : (localStorage.getItem('olga_cache_nick') || '@guest'));
     const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
-    // Обновляем кэш
+    // Кэшируем
     if (userData?.id) {
-      localStorage.setItem('olga_cache_id', String(userData.id));
+      localStorage.setItem('olga_cache_id', userId);
       localStorage.setItem('olga_cache_nick', username);
       localStorage.setItem('olga_cache_name', fullName);
     }
@@ -65,69 +65,55 @@ const sendToScript = (payload: any) => {
     const targetSheet = payload.sheet || 'Sessions';
     const currentPath = payload.city || payload.name || 'home';
 
-    // МЕГА-ОБЪЕКТ СО ВСЕМИ ВОЗМОЖНЫМИ КЛЮЧАМИ
-    // FIX: Removed duplicate keys 'Name' and 'Email' to resolve TypeScript object literal errors.
-    const data: Record<string, any> = {
-      // Имя (Обычно колонка B)
-      name: currentPath,
-      Name: currentPath,
-      'Имя': currentPath,
-      
-      // Email / Ник (Обычно колонка C)
-      email: userInfo.username,
-      Email: userInfo.username,
-      'Почта': userInfo.username,
-      'username': userInfo.username,
-      
-      // ID (Обычно колонка D - судя по вашему скрину)
-      id: userInfo.tg_id,
-      ID: userInfo.tg_id,
-      tg_id: userInfo.tg_id,
-      userId: userInfo.tg_id,
-      'ID пользователя': userInfo.tg_id,
+    // Формируем параметры (ОБЯЗАТЕЛЬНО TitleCase + lowercase для гарантии)
+    const params = new URLSearchParams();
+    params.append('action', 'log');
+    params.append('sheet', targetSheet);
+    
+    // Колонки B и C (самые важные)
+    params.append('name', currentPath);
+    params.append('Name', currentPath);
+    params.append('Имя', currentPath);
+    
+    params.append('email', userInfo.username);
+    params.append('Email', userInfo.username);
+    params.append('Почта', userInfo.username);
+    
+    // Колонка D (ID)
+    params.append('id', userInfo.tg_id);
+    params.append('ID', userInfo.tg_id);
+    params.append('tg_id', userInfo.tg_id);
+    
+    // Остальное
+    params.append('type', payload.type || 'nav');
+    params.append('city', currentPath);
+    params.append('sessionId', payload.sessionId || `SID_${Date.now()}`);
+    params.append('dateStr', new Date().toLocaleString('ru-RU'));
+    params.append('_t', Date.now().toString());
 
-      // Дополнительно
-      action: 'log',
-      sheet: targetSheet,
-      type: payload.type || 'navigation',
-      city: currentPath,
-      sessionId: payload.sessionId || `SID_${Date.now()}`,
-      dateStr: new Date().toLocaleString('ru-RU'),
-      timestamp: Date.now(),
-      _t: Date.now()
-    };
-
-    // Если это заказ
     if (payload.orderId) {
-      data.orderId = payload.orderId;
-      data.product = payload.product;
-      data.price = payload.price;
-      if (payload.name) data.customerName = payload.name;
-      if (payload.email) data.customerEmail = payload.email;
+      params.append('orderId', payload.orderId);
+      params.append('product', payload.product || '');
+      params.append('price', String(payload.price || '0'));
     }
 
-    // Сборка URL без ошибок
-    const query = Object.entries(data)
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-      .join('&');
+    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
 
-    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${query}`;
+    // МЕТОД 1: Beacon API (рекомендуется для аналитики)
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(finalUrl);
+    }
 
-    // Метод 1: Fetch с keepalive (самый современный)
-    fetch(finalUrl, { 
-      method: 'GET', 
-      mode: 'no-cors', 
-      cache: 'no-cache',
-      keepalive: true 
-    }).catch(() => {});
+    // МЕТОД 2: Image Ping (пробивает всё)
+    const img = new Image();
+    img.src = finalUrl;
 
-    // Метод 2: Image Beacon (дублируем для надежности)
-    const beacon = new Image();
-    beacon.src = finalUrl;
+    // МЕТОД 3: Fetch (для надежности на старых iOS)
+    fetch(finalUrl, { mode: 'no-cors', keepalive: true }).catch(() => {});
 
-    console.log(`📡 [SENT] -> ${targetSheet} | Path: ${currentPath} | User: ${userInfo.username}`);
+    console.log(`✅ [FIRE] -> ${targetSheet} | ${currentPath} | ${userInfo.username}`);
   } catch (err) {
-    console.error('Critical log error:', err);
+    console.error('Log error:', err);
   }
 };
 
