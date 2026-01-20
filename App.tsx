@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import Layout from './components/Layout';
 import AdminDashboard from './components/AdminDashboard';
 import { ViewState, Product, TelegramConfig } from './types';
@@ -107,21 +107,18 @@ const App: React.FC = () => {
     } catch (e) {}
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
-  useEffect(() => {
-    const init = async () => {
-      // ПРЯМАЯ ИНИЦИАЛИЗАЦИЯ
-      const userInfo = getDetailedTgUser();
-      setUserIdentifier(userInfo.primaryId);
-      
-      // СРАЗУ ЗАПУСКАЕМ СЕССИЮ (не ждем 3 секунды)
-      analyticsService.startSession(userInfo.primaryId).then(sid => {
-        activeSessionId.current = sid;
-      });
+  // ГАРАНТИРОВАННЫЙ ЗАПУСК АНАЛИТИКИ
+  useLayoutEffect(() => {
+    const userInfo = getDetailedTgUser();
+    setUserIdentifier(userInfo.primaryId);
+    
+    // ПРЯМАЯ ОТПРАВКА СТАРТА
+    analyticsService.startSession(userInfo.primaryId).then(sid => {
+      activeSessionId.current = sid;
+    });
 
-      syncWithCloud();
-      fetchUserAccess(userInfo.primaryId);
-    };
-    init();
+    syncWithCloud();
+    fetchUserAccess(userInfo.primaryId);
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -135,9 +132,14 @@ const App: React.FC = () => {
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
   const handleNavigate = (newView: ViewState) => { 
-    setActiveDetailProduct(null); setCheckoutProduct(null); setActiveSecretProduct(null); setView(newView); 
+    setActiveDetailProduct(null); 
+    setCheckoutProduct(null); 
+    setActiveSecretProduct(null); 
+    setView(newView); 
+    
     if (newView === 'account') fetchUserAccess();
-    // Отправляем переход. Если sessionId еще нет, сервис использует nosid
+    
+    // ОТПРАВЛЯЕМ ПЕРЕХОД
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
