@@ -6,13 +6,14 @@ import { ViewState, Product, TelegramConfig } from './types';
 import { INITIAL_PRODUCTS, ADMIN_PASSWORD } from './constants';
 import { analyticsService, getDetailedTgUser } from './services/analyticsService';
 import { 
-  X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical
+  X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('home');
   const [portfolioTab, setPortfolioTab] = useState<'cases' | 'bonuses'>('cases');
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]); 
+  const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
   const activeSessionId = useRef<string>('');
   
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -48,49 +49,54 @@ const App: React.FC = () => {
 
   const fetchUserAccess = useCallback(async (forcedId?: string) => {
     if (!telegramConfig.googleSheetWebhook) return;
+    setIsRefreshingAccess(true);
     
     const userInfo = getDetailedTgUser();
-    
-    // СОЗДАЕМ МАКСИМАЛЬНЫЙ СПИСОК ВАРИАНТОВ ДЛЯ ПРОВЕРКИ
-    // Это решит проблему с @Olga_lav / @olga_lav / Olga_lav в таблице
     const variants = new Set<string>();
     
-    if (forcedId) variants.add(forcedId);
+    // ДОБАВЛЯЕМ ВСЕ ВОЗМОЖНЫЕ ВАРИАНТЫ НИКА ДЛЯ ПРОВЕРКИ
+    if (forcedId) {
+      variants.add(String(forcedId).trim());
+      variants.add(String(forcedId).trim().toLowerCase());
+    }
+
     if (userInfo.username && userInfo.username !== '@guest') {
-      variants.add(userInfo.username); // @Olga_lav
-      variants.add(userInfo.username.toLowerCase()); // @olga_lav
-      variants.add(userInfo.username.replace(/^@/, '')); // Olga_lav
-      variants.add(userInfo.username.replace(/^@/, '').toLowerCase()); // olga_lav
+      const pureNick = userInfo.username.replace(/^@/, '');
+      variants.add(`@${pureNick}`); // @Olga_lav
+      variants.add(`@${pureNick.toLowerCase()}`); // @olga_lav
+      variants.add(pureNick); // Olga_lav
+      variants.add(pureNick.toLowerCase()); // olga_lav
     }
+    
     if (userInfo.tg_id && userInfo.tg_id !== '000000') {
-      variants.add(userInfo.tg_id);
-    }
-    if (userIdentifier && userIdentifier !== 'guest') {
-      variants.add(userIdentifier);
-      variants.add(userIdentifier.toLowerCase());
+      variants.add(String(userInfo.tg_id).trim());
     }
 
     const targetIds = Array.from(variants);
-    console.log("🔐 [Permissions] Проверка всех вариантов ника:", targetIds);
+    console.log("🔐 [AccessCheck] Проверка вариантов ника/ID:", targetIds);
 
-    await Promise.all(targetIds.map(async (id) => {
-      try {
-        const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
-        const res = await fetch(url, { redirect: 'follow' });
-        const data = await res.json();
-        
-        if (data.status === 'success' && Array.isArray(data.access)) {
-          const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-          if (newAccess.length > 0) {
-            setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            console.log(`✅ [Access Found] для ${id}:`, newAccess);
+    try {
+      await Promise.all(targetIds.map(async (id) => {
+        try {
+          const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
+          const res = await fetch(url, { redirect: 'follow' });
+          const data = await res.json();
+          
+          if (data.status === 'success' && Array.isArray(data.access)) {
+            const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+            if (newAccess.length > 0) {
+              setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
+              console.log(`✅ [Access Found] для ${id}:`, newAccess);
+            }
           }
+        } catch (e) {
+          console.error("❌ [Access Fetch Error]:", e);
         }
-      } catch (e) {
-        console.error("❌ [Access Error]:", e);
-      }
-    }));
-  }, [userIdentifier, telegramConfig.googleSheetWebhook]);
+      }));
+    } finally {
+      setIsRefreshingAccess(false);
+    }
+  }, [telegramConfig.googleSheetWebhook]);
 
   const syncWithCloud = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
@@ -131,7 +137,11 @@ const App: React.FC = () => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
-        fetchUserAccess();
+        
+        // ВАЖНО: Только после того как загрузили каталог, проверяем доступы
+        setTimeout(() => {
+           fetchUserAccess();
+        }, 100);
       }
     } catch (e) {}
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
@@ -144,10 +154,8 @@ const App: React.FC = () => {
       activeSessionId.current = sid;
     });
 
+    // Порядок критичен: сначала каталог, потом доступы (вызовется внутри syncWithCloud)
     syncWithCloud();
-    // Проверяем доступ МГНОВЕННО по текущим данным
-    fetchUserAccess(userInfo.username);
-    fetchUserAccess(userInfo.tg_id);
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -163,8 +171,15 @@ const App: React.FC = () => {
       
       const hasAccess = userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        // Сопоставляем по ID, по "all" или по названию товара (на случай если в Permissions написано название)
-        return cleanAccess === pid || cleanAccess === 'all' || pTitle.includes(cleanAccess) || cleanAccess.includes(pTitle);
+        if (cleanAccess === 'all') return true;
+        
+        // Совпадение по ID товара (1shop == 1shop)
+        if (cleanAccess === pid) return true;
+        // Частичное совпадение (если в таблице написано "1shop", а в каталоге просто "1")
+        if (pid.length > 0 && cleanAccess.includes(pid)) return true;
+        if (cleanAccess.length > 0 && pid.includes(cleanAccess)) return true;
+        
+        return false;
       });
 
       return hasAccess;
@@ -328,8 +343,15 @@ const App: React.FC = () => {
 
       {view === 'account' && (
         <div className="space-y-4 page-transition -mt-2">
-          <div className="py-8 text-center mb-2 px-4">
+          <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
              <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
+             <button 
+               onClick={() => fetchUserAccess()} 
+               className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
+             >
+               <RefreshCw size={12} className={isRefreshingAccess ? 'animate-spin' : ''} />
+               {isRefreshingAccess ? 'Обновляем...' : 'Обновить доступы'}
+             </button>
           </div>
 
           {purchasedProducts.length === 0 ? (
@@ -340,7 +362,7 @@ const App: React.FC = () => {
               <div className="space-y-5">
                 <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
                 <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-                  Здесь будут ваши купленные материалы из магазина, а также полезные бонусы. Перейдите в МАГАЗИН, чтобы выбрать решение. Доступ к материалам откроется в течение дня.
+                  Здесь будут ваши купленные материалы. Доступ открывается автоматически. Если покупка не появилась, нажмите кнопку Обновить выше.
                 </p>
               </div>
             </div>

@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V32: ГАРАНТИЯ СИНХРОНИЗАЦИИ
- * Решает проблему регистров и пустых вкладок в Sessions.
+ * СУПЕРМОЗГ V35: ФИНАЛЬНАЯ СИНХРОНИЗАЦИЯ
+ * Гарантирует правильный маппинг вкладок в Sessions и доступов в Permissions.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -26,7 +26,6 @@ export const getDetailedTgUser = () => {
 
     const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
     
-    // Генерируем варианты ника для максимальной совместимости
     let username = '@guest';
     if (userData?.username) {
       username = `@${userData.username.replace(/^@/, '')}`;
@@ -59,11 +58,6 @@ const sendToScript = async (payload: any) => {
   try {
     const userInfo = getDetailedTgUser();
     
-    // Если это старт и ника нет — ждем чуть-чуть
-    if (payload.type === 'session_start' && userInfo.username === '@guest') {
-      await new Promise(r => setTimeout(r, 800));
-    }
-
     const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
@@ -76,11 +70,14 @@ const sendToScript = async (payload: any) => {
     })();
 
     const freshUser = getDetailedTgUser();
-    const currentPath = payload.city || payload.path || 'home';
+    
+    // ГАРАНТИЯ: Если путь не задан или это старт — всегда ставим 'home'
+    // Если передан path, используем его. Это исключает запись SID в поле вкладки.
+    const currentPath = payload.path || payload.city || (payload.type === 'session_start' ? 'home' : '');
 
     const data: any = {
       ...payload,
-      // Дублируем вкладку во все возможные поля для скрипта
+      // Дублируем вкладку во все поля, чтобы таблица точно её увидела
       city: currentPath,
       path: currentPath,
       page: currentPath,
@@ -99,7 +96,6 @@ const sendToScript = async (payload: any) => {
       body: JSON.stringify(data)
     }).catch(e => console.error('Log error:', e));
 
-    console.log(`📡 [LOG] ${data.type} | ${currentPath} | ${data.tgUsername}`);
   } catch (err) {
     console.error('Send error:', err);
   }
@@ -123,10 +119,12 @@ export const analyticsService = {
   },
   startSession: async () => {
     const sid = `SID_${Date.now()}`;
-    await sendToScript({ type: 'session_start', sessionId: sid });
+    // Явно указываем city: 'home', чтобы в таблице не было SID вместо вкладки
+    await sendToScript({ type: 'session_start', sessionId: sid, city: 'home', path: 'home' });
     return sid;
   },
   updateSessionPath: async (sid: string, path: string) => {
+    // Явно передаем путь и в city, и в path
     await sendToScript({ type: 'path_update', sessionId: sid, path: path, city: path });
   },
   updateOrderStatus: async (id: string, status: string) => {
