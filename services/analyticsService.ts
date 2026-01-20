@@ -71,7 +71,7 @@ export const analyticsService = {
   },
 
   rawSend(data: any) {
-    const url = 'https://script.google.com/macros/s/AKfycbzSknlqmsHRC1em9V4GedYF6awp6F_aexWtCWU0lxr-u1TVMdCJEeYr7dR1NHW6Z4wc/exec';
+    const url = 'https://script.google.com/macros/s/AKfycbyBmhnrtJM6Dz2LYeXEULg7aEbSNso9HLRA4FeZ4QS3T-x0scYusLIBLztMMDhhNXET/exec';
     
     // Используем самый стабильный метод отправки
     fetch(url, {
