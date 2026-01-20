@@ -1,37 +1,37 @@
 
 /**
- * СУПЕРМОЗГ V18: ОКОНЧАТЕЛЬНЫЙ ЗАХВАТ
- * Рекурсивный парсинг для захвата ника на 100% устройств.
+ * СУПЕРМОЗГ V19: ФИНАЛЬНЫЙ ЗАХВАТ ДАННЫХ
+ * Исправлен парсинг для Desktop и маппинг для таблицы.
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v18';
+const CACHED_USER_KEY = 'olga_tg_final_v19';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 const FALLBACK_ID = '000000';
 
 /**
- * Рекурсивно ищет объект 'user' в строке параметров
+ * Глубокий парсинг строки на наличие объекта user
  */
-const findUserInString = (str: string): any => {
-  if (!str) return null;
+const deepParseUser = (rawStr: string): any => {
+  if (!rawStr) return null;
   try {
-    const params = new URLSearchParams(str.replace(/^#/, '').replace(/^\?/, ''));
+    const cleanStr = rawStr.replace(/^#/, '').replace(/^\?/, '');
+    const params = new URLSearchParams(cleanStr);
     
-    // 1. Прямой поиск user
-    const userJson = params.get('user');
-    if (userJson) return JSON.parse(decodeURIComponent(userJson));
+    // Проверяем прямое наличие user
+    const userParam = params.get('user');
+    if (userParam) return JSON.parse(decodeURIComponent(userParam));
     
-    // 2. Поиск во вложенном tgWebAppData (часто на Desktop)
-    const tgData = params.get('tgWebAppData');
-    if (tgData) return findUserInString(decodeURIComponent(tgData));
-    
-    // 3. Поиск в остальных параметрах (на всякий случай)
-    for (const [key, value] of params.entries()) {
-      if (value && (value.includes('%7B') || value.includes('{'))) {
+    // Проверяем вложенность в tgWebAppData (стандарт для Desktop)
+    const webAppData = params.get('tgWebAppData');
+    if (webAppData) return deepParseUser(decodeURIComponent(webAppData));
+
+    // Пробуем найти JSON структуру в любом параметре
+    for (const [_, value] of params.entries()) {
+      if (value && (value.includes('{"id":') || value.includes('%7B%22id%22'))) {
         try {
-          const decoded = decodeURIComponent(value);
-          if (decoded.includes('"id":')) return JSON.parse(decoded);
+          return JSON.parse(decodeURIComponent(value));
         } catch (e) {}
       }
     }
@@ -46,58 +46,47 @@ export const getDetailedTgUser = () => {
 
     let userData: any = null;
 
-    // ШАГ 1: Проверка SDK
+    // 1. Прямая попытка через официальный SDK
     if (tg?.initDataUnsafe?.user) {
       userData = tg.initDataUnsafe.user;
     }
 
-    // ШАГ 2: Если SDK пуст, сканируем URL (актуально для PC и старых версий)
+    // 2. Если пусто (часто на PC), парсим все URL источники
     if (!userData) {
-      const sources = [
-        window.location.hash,
-        window.location.search,
-        tg?.initData
-      ].filter(Boolean);
-
-      for (const src of sources) {
-        userData = findUserInString(src!);
+      const sources = [window.location.hash, window.location.search, tg?.initData].filter(Boolean);
+      for (const s of sources) {
+        userData = deepParseUser(s!);
         if (userData) break;
       }
     }
 
-    // ШАГ 3: Формирование ника и ID
-    let userId = userData?.id ? String(userData.id) : null;
-    let username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : null;
-    let fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim();
+    // 3. Формируем идентификаторы
+    const userId = userData?.id ? String(userData.id) : null;
+    const username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : (userId ? `@id${userId}` : null);
+    const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : null;
 
-    // Если ника нет, но есть ID — делаем ник из ID
-    const stableId = userId || FALLBACK_ID;
-    const stableNick = username || (userId ? `@id${userId}` : `@guest_${FALLBACK_ID}`);
+    const finalId = userId || FALLBACK_ID;
+    const finalNick = username || `@guest_${finalId}`;
 
-    // ШАГ 4: Кэширование (чтобы не терять данные при обновлении)
+    // 4. Кэширование для стабильности при перезагрузках
     if (userId || username) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId: stableId, username: stableNick, fullName }));
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId: finalId, username: finalNick, fullName }));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
       if (cached) {
         const c = JSON.parse(cached);
-        return {
-          primaryId: c.username,
-          tg_id: c.userId,
-          username: c.username,
-          displayName: c.fullName || c.username
-        };
+        return { primaryId: c.username, tg_id: c.userId, username: c.username, displayName: c.fullName || c.username };
       }
     }
 
     return {
-      primaryId: stableNick,
-      tg_id: stableId,
-      username: stableNick,
-      displayName: fullName || stableNick
+      primaryId: finalNick,
+      tg_id: finalId,
+      username: finalNick,
+      displayName: fullName || finalNick
     };
   } catch (e) {
-    return { primaryId: '@error', tg_id: FALLBACK_ID, username: '@error', displayName: 'User' };
+    return { primaryId: `@guest_${FALLBACK_ID}`, tg_id: FALLBACK_ID, username: `@guest_${FALLBACK_ID}`, displayName: 'User' };
   }
 };
 
@@ -114,14 +103,17 @@ const sendToScript = async (payload: any) => {
   })();
 
   try {
+    // Свежий захват пользователя перед каждой отправкой
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // МАППИНГ ДЛЯ ТАБЛИЦЫ: city -> Имя, country -> Email
+    // МАППИНГ ДЛЯ ТАБЛИЦЫ:
+    // city (Col B "Имя") -> Ник
+    // country (Col C "Email") -> Ник
     const cleanPayload = {
       ...payload,
-      city: (payload.type === 'path_update') ? payload.city : (payload.city && payload.city !== '---' && !payload.city.includes('home')) ? payload.city : nick,
-      country: (payload.country && payload.country !== '---') ? payload.country : nick,
+      city: (payload.type === 'path_update') ? payload.city : (payload.city && !['---', 'Unknown', 'none'].includes(payload.city)) ? payload.city : nick,
+      country: (payload.country && !['---', 'Unknown', 'none'].includes(payload.country)) ? payload.country : nick,
       name: payload.name || userInfo.displayName,
       email: payload.email || nick,
       username: nick,
@@ -131,7 +123,10 @@ const sendToScript = async (payload: any) => {
     const query = new URLSearchParams();
     Object.keys(cleanPayload).forEach(key => {
       let v = String(cleanPayload[key]);
-      if (v === 'undefined' || v === 'null' || v === '---') v = nick;
+      // Жесткая замена мусора на Ник
+      if (!v || v === 'undefined' || v === 'null' || v === '---' || v === 'Unknown' || v === 'none') {
+        v = nick;
+      }
       query.append(key, v);
     });
 

@@ -109,22 +109,23 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // БУЛЛЕТПРУФ ОЖИДАНИЕ: Пытаемся захватить данные 8 раз (около 4 секунд)
+      // ПОВЫШЕННОЕ ОЖИДАНИЕ (10 попыток по 500мс = 5 секунд)
       let userInfo = getDetailedTgUser();
       let attempts = 0;
-      while (userInfo.tg_id === '000000' && attempts < 8) {
+      while (userInfo.tg_id === '000000' && attempts < 10) {
         await new Promise(r => setTimeout(r, 500));
         userInfo = getDetailedTgUser();
         attempts++;
       }
 
-      setUserIdentifier(userInfo.primaryId);
+      // Обновляем идентификатор перед стартом
+      const finalInfo = getDetailedTgUser();
+      setUserIdentifier(finalInfo.primaryId);
       syncWithCloud();
       
-      // Запускаем сессию только после того, как попытки захвата завершены
-      const sid = await analyticsService.startSession(userInfo.primaryId);
+      const sid = await analyticsService.startSession(finalInfo.primaryId);
       activeSessionId.current = sid;
-      fetchUserAccess(userInfo.primaryId);
+      fetchUserAccess(finalInfo.primaryId);
     };
     init();
   }, []);
@@ -333,7 +334,7 @@ const App: React.FC = () => {
           <div className="flex-grow overflow-y-auto p-6 space-y-5 no-scrollbar pb-32">
              <h2 className="text-[16px] font-black leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} />
-             <div className="text-slate-600 text-[13px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
+             <div className="text-slate-600 text-[15px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
           </div>
           <div className="absolute bottom-6 left-0 right-0 z-[4600] px-6 flex justify-center">
             <button 
