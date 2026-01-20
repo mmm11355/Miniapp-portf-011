@@ -338,7 +338,7 @@ const syncWithCloud = useCallback(async () => {
       
       {/* Кнопка теперь передает актуальный ID пользователя при нажатии */}
       <button 
-        onClick={() => fetchUserAccess(userIdentifier, userInfo?.username || '')} 
+        onClick={() => fetchUserAccess(userIdentifier, "")} 
         className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
       >
         <RefreshCw size={12} className={isRefreshingAccess ? 'animate-spin' : ''} />
