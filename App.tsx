@@ -373,12 +373,13 @@ const App: React.FC = () => {
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) return;
+              // Fix: analyticsService.logOrder expects only 1 argument. Removed activeSessionId.current.
               const order = await analyticsService.logOrder({
                 productTitle: checkoutProduct.title, price: checkoutProduct.price, productId: checkoutProduct.id,
                 customerName, customerEmail, customerPhone: '---',
                 utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
                 agreedToMarketing
-              } as any, activeSessionId.current);
+              } as any);
               let paymentUrl = checkoutProduct.prodamusId?.startsWith('http') ? checkoutProduct.prodamusId : 'https://antol.payform.ru/';
               const connector = paymentUrl.includes('?') ? '&' : '?';
               paymentUrl += `${connector}order_id=${order.id}&customer_email=${encodeURIComponent(customerEmail)}`;
