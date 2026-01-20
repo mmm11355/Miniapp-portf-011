@@ -156,12 +156,17 @@ const syncWithCloud = useCallback(async () => {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
 
-  const purchasedProducts = useMemo(() => {
+ const purchasedProducts = useMemo(() => {
+    console.log("ТЕКУЩИЕ ДОСТУПЫ:", userPurchasedIds); // Увидим в консоли, что пришло
+    console.log("ВСЕ ТОВАРЫ:", products.map(p => p.id)); // Увидим ID товаров из каталога
+
     return products.filter(p => {
       const pid = String(p.id).trim().toLowerCase();
       return userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        return cleanAccess === 'all' || cleanAccess === pid || (cleanAccess.includes(pid) && pid.length > 0) || (pid.includes(cleanAccess) && cleanAccess.length > 0);
+        const match = cleanAccess === 'all' || cleanAccess === pid || (cleanAccess.includes(pid) && pid.length > 0);
+        if (match) console.log(`Найдено совпадение для: ${pid}`);
+        return match;
       });
     });
   }, [products, userPurchasedIds]);
