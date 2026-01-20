@@ -1,12 +1,12 @@
 
 /**
- * СУПЕРМОЗГ V21: ОКОНЧАТЕЛЬНАЯ СИНХРОНИЗАЦИЯ С ТАБЛИЦЕЙ
- * Фикс маппинга: название раздела -> Имя, Ник -> Email.
+ * СУПЕРМОЗГ V22: ПРЯМАЯ СВЯЗЬ С ЛИСТАМИ ТАБЛИЦЫ
+ * Добавлен параметр 'sheet' для точной записи в Sessions и Orders.
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v21';
+const CACHED_USER_KEY = 'olga_tg_final_v22';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 const FALLBACK_ID = '000000';
 
@@ -85,27 +85,26 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // СТРОГИЙ МАППИНГ ПО ВАШЕМУ СКРИНШОТУ:
-    // Поле 'name' -> Колонка B (Имя)
-    // Поле 'email' -> Колонка C (Email)
+    // ФОРМИРУЕМ ДАННЫЕ ДЛЯ ТАБЛИЦЫ
     let finalName = payload.name || userInfo.displayName || nick;
     let finalEmail = payload.email || nick;
 
-    // Если это обновление пути (Session), пишем название раздела в "Имя", а ник в "Email"
-    if (payload.type === 'path_update' || payload.type === 'session_start') {
-      finalName = payload.city || payload.type; 
+    // Маппинг для Sessions: Имя (B) = Название раздела, Email (C) = Ник
+    if (payload.sheet === 'Sessions') {
+      finalName = payload.city || payload.type || 'home';
       finalEmail = nick;
     }
 
-    const cleanPayload = {
+    const cleanPayload: any = {
+      action: 'log',
+      sheet: payload.sheet || 'Sessions', // КРИТИЧЕСКИ ВАЖНО: Название листа
       ...payload,
-      action: 'log', // Добавляем действие для скрипта
       name: finalName,
       email: finalEmail,
       city: payload.city || nick,
       country: nick,
       username: nick,
-      _t: Date.now() // Анти-кэш
+      _t: Date.now()
     };
 
     const query = new URLSearchParams();
@@ -118,8 +117,18 @@ const sendToScript = async (payload: any) => {
     });
 
     const url = `${webhook}${webhook.includes('?') ? '&' : '?'}${query.toString()}`;
-    // Используем GET с no-cors - это 100% способ записи в Google Sheets
-    await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-cache' });
+    
+    // Пытаемся отправить через POST (основной метод)
+    fetch(webhook, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: query.toString()
+    }).catch(() => {});
+
+    // Дублируем через GET (страховка для Sessions)
+    fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-cache' }).catch(() => {});
+    
   } catch (e) {}
 };
 
@@ -128,6 +137,7 @@ export const analyticsService = {
     const userInfo = getDetailedTgUser();
     const orderId = Math.random().toString(36).substr(2, 9);
     await sendToScript({
+      sheet: 'Orders', // Пишем в лист заказов
       type: 'order',
       product: order.productTitle,
       price: order.price,
@@ -143,9 +153,10 @@ export const analyticsService = {
     const nick = forcedId || userInfo.username;
     const sid = `${nick.replace(/[^a-z0-9]/gi, '')}_${Date.now().toString(36)}`;
     await sendToScript({
+      sheet: 'Sessions', // Пишем в лист сессий
       type: 'session_start',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: 'home', // Начальная точка
+      city: 'home',
       sessionId: sid
     });
     return sid;
@@ -154,14 +165,16 @@ export const analyticsService = {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
     await sendToScript({
+      sheet: 'Sessions', // Пишем в лист сессий
       type: 'path_update',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: path, // Это пойдет в 'name' (Колонка B) благодаря логике в sendToScript
+      city: path, 
       sessionId: sid
     });
   },
   updateOrderStatus: async (id: string, status: string) => {
     await sendToScript({
+      sheet: 'Orders',
       type: 'order_update',
       orderId: id,
       paymentStatus: status === 'paid' ? 'success' : 'failed',
