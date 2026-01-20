@@ -2,50 +2,67 @@
 import { Session, OrderLog } from '../types';
 
 const STORAGE_KEY = 'olga_analytics_sessions_v2';
-const CACHED_USER_KEY = 'olga_cached_tg_user_v1';
+const CACHED_USER_KEY = 'olga_cached_tg_user_v2';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
+// Мировой супермозг: Извлекаем ID даже из "камня"
 export const getDetailedTgUser = () => {
   try {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) tg.ready();
 
-    let user = tg?.initDataUnsafe?.user;
+    let userId: string | null = null;
+    let username: string | null = null;
+    let fullName: string | null = null;
 
-    // Метод "Супермозг" №1: Если объект пуст, парсим сырую строку initData
-    if (!user && tg?.initData) {
-      try {
-        const params = new URLSearchParams(tg.initData);
-        const userStr = params.get('user');
-        if (userStr) user = JSON.parse(userStr);
-      } catch (e) {}
+    // 1. Пытаемся взять из официального объекта
+    const userObj = tg?.initDataUnsafe?.user;
+    if (userObj) {
+      userId = userObj.id ? String(userObj.id) : null;
+      username = userObj.username ? `@${userObj.username}` : null;
+      fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // Извлекаем данные
-    const id = user?.id ? String(user.id) : null;
-    const username = user?.username ? `@${user.username}` : null;
-    const firstName = user?.first_name || '';
-    const lastName = user?.last_name || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-
-    // Метод "Супермозг" №2: Кэширование. Если нашли ID — запоминаем. Если не нашли — берем из кэша.
-    if (id) {
-      const cacheData = { id, username, fullName };
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(cacheData));
+    // 2. Если пусто, применяем REGEX к сырой строке (initData)
+    // Это достанет ID 1843449768 даже если объект user еще не распарсился
+    if (!userId && tg?.initData) {
+      const idMatch = tg.initData.match(/id(?:%22|")%3A(\d+)/) || tg.initData.match(/id":(\d+)/);
+      if (idMatch && idMatch[1]) userId = idMatch[1];
+      
+      const userMatch = tg.initData.match(/username(?:%22|")%3A(?:%22|")([^%"]+)/);
+      if (userMatch && userMatch[1]) username = `@${userMatch[1]}`;
     }
 
-    const cached = localStorage.getItem(CACHED_USER_KEY);
-    const cachedUser = cached ? JSON.parse(cached) : null;
+    // 3. Крайняя мера: парсим URL Hash напрямую
+    if (!userId) {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const initDataRaw = hashParams.get('tgWebAppData');
+      if (initDataRaw) {
+        const idMatch = initDataRaw.match(/id%22%3A(\d+)/);
+        if (idMatch && idMatch[1]) userId = idMatch[1];
+      }
+    }
 
-    const finalId = id || cachedUser?.id || null;
-    const finalUsername = username || cachedUser?.username || finalId || 'guest';
-    const finalDisplayName = fullName || cachedUser?.fullName || finalUsername || 'Пользователь';
+    // Кэширование для стабильности
+    if (userId) {
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
+    } else {
+      const cached = localStorage.getItem(CACHED_USER_KEY);
+      if (cached) {
+        const c = JSON.parse(cached);
+        userId = c.userId;
+        username = c.username;
+        fullName = c.fullName;
+      }
+    }
 
-    // ВАЖНО: Если ника нет, во все идентификаторы пишем ID (например, 1843449768)
-    // Это уберет "Unknown" из вашей таблицы навсегда.
+    const finalId = userId || 'none';
+    const finalUsername = username || userId || 'guest';
+    const finalDisplayName = fullName || username || userId || 'Пользователь';
+
     return {
-      primaryId: finalUsername === 'guest' ? 'guest' : finalUsername,
-      tg_id: finalId || 'none',
+      primaryId: finalUsername, // Это пойдет в Email/Username колонки
+      tg_id: finalId,
       username: finalUsername,
       displayName: finalDisplayName
     };
@@ -67,16 +84,31 @@ const getWebhookUrl = () => {
   return DEFAULT_WEBHOOK;
 };
 
+// Предохранитель: заменяет все null/undefined на строковые значения перед отправкой
+const sanitizePayload = (payload: any) => {
+  const sanitized: any = {};
+  for (const key in payload) {
+    const val = payload[key];
+    if (val === null || val === undefined || val === '') {
+      sanitized[key] = (key === 'username' || key === 'email') ? 'ID_Pending' : 'No_Data';
+    } else {
+      sanitized[key] = val;
+    }
+  }
+  return sanitized;
+};
+
 const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
   try {
+    const cleanPayload = sanitizePayload(payload);
     await fetch(webhook, {
       method: 'POST',
       mode: 'no-cors',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(cleanPayload)
     });
   } catch (e) {}
 };
@@ -99,7 +131,7 @@ export const analyticsService = {
     await sendToScript({
       action: 'log',
       type: 'order',
-      sessionId: currentSessionId || globalSessionId || 'unknown',
+      sessionId: currentSessionId || globalSessionId || 'session_order',
       orderId: newOrder.id,
       name: `${newOrder.customerName} (${userInfo.displayName})`,
       email: userInfo.primaryId,
@@ -130,7 +162,9 @@ export const analyticsService = {
   startSession: async (forcedUsername?: string): Promise<string> => {
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
-    const safeId = tgId.replace(/[^a-zA-Z0-9]/g, '') || 'user';
+    
+    // Генерируем ID сессии на базе ID пользователя для связки
+    const safeId = String(tgId).replace(/[^a-zA-Z0-9]/g, '') || 'user';
     const sessionId = `${safeId}_${Math.random().toString(36).substr(2, 4)}`;
     globalSessionId = sessionId;
     
@@ -154,7 +188,7 @@ export const analyticsService = {
 
   updateSessionPath: async (sessionId: string, path: string) => {
     const userInfo = getDetailedTgUser();
-    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'unknown');
+    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'unknown_session');
     
     await sendToScript({
       action: 'log',

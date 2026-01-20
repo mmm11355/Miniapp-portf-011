@@ -109,9 +109,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 800ms - гарантированное время для инициализации Telegram WebApp SDK в любых условиях
-      await new Promise(r => setTimeout(r, 800));
-      const userInfo = getDetailedTgUser();
+      // Супермозг: 3 попытки получения данных пользователя с микрозадержками
+      let userInfo = getDetailedTgUser();
+      if (userInfo.primaryId === 'guest') {
+        await new Promise(r => setTimeout(r, 400));
+        userInfo = getDetailedTgUser();
+      }
+      if (userInfo.primaryId === 'guest') {
+        await new Promise(r => setTimeout(r, 600));
+        userInfo = getDetailedTgUser();
+      }
+
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
       const sid = await analyticsService.startSession(userInfo.primaryId);
@@ -185,7 +193,7 @@ const App: React.FC = () => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
           
-          {/* Улучшенный блок достижений */}
+          {/* Улучшенный блок достижений: Сохранен стильный дизайн */}
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
              <div className="flex items-center gap-4 group">
                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
