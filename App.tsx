@@ -80,8 +80,9 @@ const App: React.FC = () => {
     setIsRefreshingAccess(false);
   }
 
-
-  }, [telegramConfig.googleSheetWebhook]);
+  // Код твоей функции...
+    
+  }, [telegramConfig]); // Попробуй сократить до этого, если googleSheetWebhook вызывает ошибку
 
   const syncWithCloud = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
