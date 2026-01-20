@@ -20,19 +20,27 @@ const App: React.FC = () => {
   const [activeSecretProduct, setActiveSecretProduct] = useState<Product | null>(null);
   const [userIdentifier, setUserIdentifier] = useState<string>('guest');
 
+  // Добавь это туда, где лежат остальные useState
+ const [userInfo, setUserInfo] = useState<any>(null);
+  
   // Запись переходов по вкладкам в таблицу Sessions (5-я колонка)
   
-    useEffect(() => {
-  if (userIdentifier && userIdentifier !== 'guest') {
-    fetchUserAccess(userIdentifier, "");
-  }
-}, [userIdentifier]);
-  
 useEffect(() => {
-  if (userIdentifier && userIdentifier !== 'guest') {
-    fetchUserAccess(userIdentifier, userInfo?.username || '');
-  }
-}, [userIdentifier, userInfo]);
+    const tg = (window as any).Telegram?.WebApp;
+    // 1. Получаем данные пользователя при старте
+    if (tg?.initDataUnsafe?.user) {
+      setUserInfo(tg.initDataUnsafe.user);
+      if (tg.initDataUnsafe.user.id) {
+        setUserIdentifier(tg.initDataUnsafe.user.id.toString());
+      }
+    }
+
+    // 2. Если мы уже знаем ID, подтягиваем доступы из таблицы
+    if (userIdentifier && userIdentifier !== 'guest') {
+      const username = tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || "";
+      fetchUserAccess(userIdentifier, username);
+    }
+  }, [userIdentifier]);
   
   
   const [products, setProducts] = useState<Product[]>(() => {
@@ -195,9 +203,10 @@ const syncWithCloud = useCallback(async () => {
     setActiveSecretProduct(null);
     setView(newView);
     
-    // Если переходим в кабинет, запрашиваем доступы по ID
     if (newView === 'account') {
-      fetchUserAccess(userIdentifier, "");
+      // Берем имя из нашего userInfo, который мы создали выше
+      const username = userInfo?.username || userInfo?.first_name || "";
+      fetchUserAccess(userIdentifier, username);
     }
     
     analyticsService.updateSessionPath(activeSessionId.current, newView);
