@@ -197,32 +197,25 @@ const syncWithCloud = useCallback(async () => {
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
- const handleNavigate = (newView: any, product: any = null) => {
-    // 1. Закрываем все открытые окна (оплату, секретные материалы)
-    setCheckoutProduct(null);
-    setActiveSecretProduct(null);
-    
-    // 2. Логика открытия описания
-    if (product && typeof product === 'object') {
-      setActiveDetailProduct(product);
-    } else {
-      setActiveDetailProduct(null);
-    }
-    
-    // 3. Переход на вкладку
-    setView(newView);
-    
-    // 4. Запрос к таблице только если идем в кабинет
-    if (newView === 'account') {
-      const username = userInfo?.username || userInfo?.first_name || "";
-      fetchUserAccess(userIdentifier, username);
-    }
-    
-    // Безопасный вызов аналитики
-    if (analyticsService?.updateSessionPath && activeSessionId?.current) {
-      analyticsService.updateSessionPath(activeSessionId.current, newView);
-    }
-  };
+ const handleNavigate = (newView: ViewState, product: any = null) => {
+  // Сбрасываем старое, чтобы не было конфликтов
+  setCheckoutProduct(null);
+  setActiveSecretProduct(null);
+  
+  // Ключевой момент: сохраняем выбранный продукт (лонгрид)
+  if (product) {
+    setActiveDetailProduct(product);
+  } else {
+    setActiveDetailProduct(null);
+  }
+
+  setView(newView);
+
+  if (newView === 'account') {
+    const username = userInfo?.username || userInfo?.first_name || "";
+    fetchUserAccess(userIdentifier, username);
+  }
+};
 
   const MediaRenderer: React.FC<{ url: string; type: 'image' | 'video'; className?: string; onClick?: () => void; isDetail?: boolean }> = ({ url, type, className, onClick, isDetail }) => {
     if (!url) return null;
