@@ -30,20 +30,13 @@ const App: React.FC = () => {
       });
     }
   }, [view, userIdentifier]);
-
-  // Эта переменная фильтрует товары для экрана "МОИ"
-  const purchasedProducts = useMemo(() => {
-    // Если из таблицы еще ничего не пришло, возвращаем пустой список
-    if (!userPurchasedIds || userPurchasedIds.length === 0) return [];
-
-    return products.filter(p => {
-      const productId = String(p.id).toLowerCase().trim();
-      // Проверяем, есть ли ID товара в списке доступов из таблицы
-      return userPurchasedIds.some(accessId => 
-        String(accessId).toLowerCase().trim() === productId
-      );
-    });
-  }, [products, userPurchasedIds]);
+  
+useEffect(() => {
+  if (userIdentifier && userIdentifier !== 'guest') {
+    fetchUserAccess(userIdentifier, userInfo?.username || '');
+  }
+}, [userIdentifier, userInfo]);
+  
   
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -204,7 +197,7 @@ const syncWithCloud = useCallback(async () => {
     setCheckoutProduct(null);
     setActiveSecretProduct(null);
     setView(newView);
-    if (newView === 'account') fetchUserAccess();
+    if (newView === 'account') fetchUserAccess(userIdentifier, userInfo?.username || '');
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
