@@ -183,16 +183,15 @@ const syncWithCloud = useCallback(async () => {
   const [customerEmail, setCustomerEmail] = useState('');
 
  const purchasedProducts = useMemo(() => {
-    console.log("ТЕКУЩИЕ ДОСТУПЫ:", userPurchasedIds); // Увидим в консоли, что пришло
-    console.log("ВСЕ ТОВАРЫ:", products.map(p => p.id)); // Увидим ID товаров из каталога
+    // Если доступов нет, возвращаем пустой массив
+    if (!userPurchasedIds || userPurchasedIds.length === 0) return [];
 
     return products.filter(p => {
       const pid = String(p.id).trim().toLowerCase();
       return userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        const match = cleanAccess === 'all' || cleanAccess === pid || (cleanAccess.includes(pid) && pid.length > 0);
-        if (match) console.log(`Найдено совпадение для: ${pid}`);
-        return match;
+        // Даем доступ если ID совпадает или в таблице написано 'all'
+        return cleanAccess === 'all' || cleanAccess === pid;
       });
     });
   }, [products, userPurchasedIds]);
