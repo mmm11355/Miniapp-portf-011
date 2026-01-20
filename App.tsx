@@ -211,14 +211,14 @@ const App: React.FC = () => {
                <span className="text-[13px] font-bold text-slate-700 leading-snug">60+ реализованных проектов</span>
              </div>
              
-             <div className="border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+             <div className="border-t border-slate-50 mt-2 flex items-center group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                     <Globe size={20} className="text-indigo-400" />
                   </div>
-                  <span className="text-[13px] font-bold text-slate-700">Сайт-портфолио</span>
+                  <span className="text-[13px] font-bold text-slate-700">Сайт-портфолио </span>
                 </div>
-                <span className="text-indigo-600 underline text-[13px] font-black tracking-tight pr-1">vk.cc/cOx50S</span>
+                <span className="text-indigo-600 underline text-[13px] font-black tracking-tight pr-1"> vk.cc/cOx50S</span>
              </div>
           </div>
 

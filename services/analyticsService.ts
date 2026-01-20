@@ -1,14 +1,13 @@
 
 /**
- * СУПЕРМОЗГ V13: ОКОНЧАТЕЛЬНАЯ ФИКСАЦИЯ НИКА
- * Маппинг под вашу таблицу (Скриншот): 
- * Column B (Имя) <- параметр 'city'
- * Column C (Email) <- параметр 'country'
+ * СУПЕРМОЗГ V14: БУЛЛЕТПРУФ ЗАХВАТ ДАННЫХ
+ * Исправлена проблема Desktop-версии (двойная вложенность в URL Hash)
+ * Маппинг: Column B (Имя) <- city, Column C (Email) <- country
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v13';
+const CACHED_USER_KEY = 'olga_tg_final_v14';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 export const getDetailedTgUser = () => {
@@ -20,7 +19,7 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // 1. Попытка через стандартный объект (Mobile)
+    // 1. Способ для МОБИЛОК (Прямой объект)
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
@@ -28,54 +27,54 @@ export const getDetailedTgUser = () => {
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // 2. Глубокий разбор initData (Desktop/PC)
-    const initData = tg?.initData || "";
-    const searchSource = initData || window.location.hash || window.location.search;
-    
-    if (searchSource && !username) {
-      // Пытаемся вытащить JSON юзера из параметров
-      const params = new URLSearchParams(searchSource.replace(/^#/, ''));
-      const userParam = params.get('user') || params.get('tgWebAppStartParam');
+    // 2. Способ для ПК (Двойная распаковка из URL)
+    if (!userId || !username) {
+      const fullUrl = window.location.href;
+      const hash = window.location.hash.replace('#', '');
+      const search = window.location.search.replace('?', '');
       
-      if (userParam) {
-        try {
-          const parsed = JSON.parse(decodeURIComponent(userParam));
-          if (parsed.username) username = `@${parsed.username.replace(/^@/, '')}`;
-          if (!userId) userId = parsed.id ? String(parsed.id) : null;
-          if (!fullName) fullName = `${parsed.first_name || ''} ${parsed.last_name || ''}`.trim();
-        } catch (e) {
-          // Если не JSON, пробуем регуляркой прямо по строке
-          const nickMatch = searchSource.match(/username["%22]*:?["%22]*([^"%&]+)/);
-          if (nickMatch && nickMatch[1]) username = `@${decodeURIComponent(nickMatch[1]).replace(/^@/, '')}`;
+      // Ищем везде: в initData, в hash, в поиске
+      [tg?.initData, hash, search].forEach(source => {
+        if (!source) return;
+        const params = new URLSearchParams(source);
+        
+        // Telegram на ПК часто кладет всё в tgWebAppData
+        const webAppData = params.get('tgWebAppData');
+        const finalSource = webAppData ? new URLSearchParams(webAppData) : params;
+        
+        const userJson = finalSource.get('user');
+        if (userJson) {
+          try {
+            const u = JSON.parse(decodeURIComponent(userJson));
+            if (!userId && u.id) userId = String(u.id);
+            if (!username && u.username) username = `@${u.username.replace(/^@/, '')}`;
+            if (!fullName) fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+          } catch (e) {}
         }
-      }
+      });
     }
 
-    // 3. Последний шанс: поиск по всей строке URL/Hash
-    if (!username) {
-      const raw = decodeURIComponent(window.location.href);
-      const m = raw.match(/"username":"([^"]+)"/) || raw.match(/username":"([^"]+)"/);
-      if (m) username = `@${m[1].replace(/^@/, '')}`;
-    }
+    // 3. Если всё еще нет ника, но есть ID — используем ID
+    const stableId = userId || 'GUEST';
+    // FIX: Changed stableNick from const to let to allow reassignment from cache below
+    let stableNick = username || `@id${stableId}`;
 
-    // 4. Кэш
-    if (username && !username.includes('ID_')) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
+    // 4. Кэширование
+    if (userId || username) {
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username: stableNick, fullName }));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
       if (cached) {
         const c = JSON.parse(cached);
-        username = c.username; userId = c.userId; fullName = c.fullName;
+        userId = c.userId; stableNick = c.username; fullName = c.fullName;
       }
     }
 
-    const finalNick = username || (userId ? `ID_${userId}` : `GUEST_${Math.random().toString(36).substr(2, 4).toUpperCase()}`);
-
     return {
-      primaryId: finalNick, 
-      tg_id: userId || finalNick,
-      username: finalNick,
-      displayName: fullName || finalNick
+      primaryId: stableNick,
+      tg_id: userId || stableId,
+      username: stableNick,
+      displayName: fullName || stableNick
     };
   } catch (e) {
     return { primaryId: 'GUEST', tg_id: 'GUEST', username: 'GUEST', displayName: 'User' };
@@ -95,31 +94,25 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // ПРИНУДИТЕЛЬНЫЙ МАППИНГ ПОД КОЛОНКИ ТАБЛИЦЫ (B и C)
-    // Параметр 'city' попадает в колонку Имя (B)
-    // Параметр 'country' попадает в колонку Email (C)
+    // ГАРАНТИЯ: заполняем city и country ником, так как они идут в Имя и Email в вашей таблице
     const cleanPayload = {
       ...payload,
-      // Если мы в режиме сессии, city/country могут быть переопределены
-      city: payload.city && payload.city !== '---' && !payload.city.includes('ID_') ? payload.city : nick,
-      country: payload.country && payload.country !== '---' && !payload.country.includes('ID_') ? payload.country : nick,
-      // Для заказов (другие листы)
-      name: payload.name || nick,
+      city: (payload.city && payload.city !== '---' && !payload.city.includes('home')) ? payload.city : nick,
+      country: (payload.country && payload.country !== '---') ? payload.country : nick,
+      name: payload.name || userInfo.displayName,
       email: payload.email || nick,
-      tgUsername: nick,
-      username: nick
+      username: nick,
+      tgUsername: nick
     };
 
     const query = new URLSearchParams();
     Object.keys(cleanPayload).forEach(key => {
-      let val = String(cleanPayload[key]);
-      if (val === 'undefined' || val === 'null' || val === '---') val = nick;
-      query.append(key, val);
+      let v = String(cleanPayload[key]);
+      if (v === 'undefined' || v === 'null' || v === '---') v = nick;
+      query.append(key, v);
     });
 
     const url = `${webhook}${webhook.includes('?') ? '&' : '?'}${query.toString()}`;
-
-    // no-cors для Google Apps Script
     await fetch(url, { method: 'POST', mode: 'no-cors', cache: 'no-cache' });
   } catch (e) {}
 };
@@ -134,8 +127,6 @@ export const analyticsService = {
       price: order.price,
       name: order.customerName,
       email: order.customerEmail,
-      phone: order.customerPhone || '---',
-      utmSource: order.utmSource || 'direct',
       orderId,
       dateStr: new Date().toLocaleString('ru-RU')
     });
@@ -149,9 +140,8 @@ export const analyticsService = {
     await sendToScript({
       type: 'session_start',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: nick, // В колонку "Имя"
-      country: nick, // В колонку "Email"
-      utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
+      city: nick, // В колонку Имя
+      country: nick, // В колонку Email
       sessionId: sid
     });
     return sid;
@@ -163,9 +153,8 @@ export const analyticsService = {
     await sendToScript({
       type: 'path_update',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: path, // В колонку "Имя" (чтобы видеть где ходит)
-      country: nick, // В колонку "Email" (чтобы видеть КТО ходит)
-      path: path,
+      city: path, // Видим путь в колонке Имя
+      country: nick, // Видим КТО это в колонке Email
       sessionId: sid
     });
   },
