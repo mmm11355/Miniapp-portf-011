@@ -192,29 +192,29 @@ const App: React.FC = () => {
           </div>
           
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
-             <div className="flex items-center gap-4 group">
+             <div className="flex items-center gap-2 group">
                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                  <Trophy size={20} className="text-amber-500" />
                </div>
                <span className="text-[13px] font-bold text-slate-700 leading-snug">Победитель Хакатона EdMarket</span>
              </div>
              
-             <div className="flex items-center gap-4 group">
+             <div className="flex items-center gap-2 group">
                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                  <Award size={20} className="text-indigo-500" />
                </div>
                <span className="text-[13px] font-bold text-slate-700 leading-snug">Специалист GetCourse и Prodamus.XL</span>
              </div>
              
-             <div className="flex items-center gap-4 group">
+             <div className="flex items-center gap-2 group">
                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                  <BriefcaseIcon size={20} className="text-emerald-500" />
                </div>
                <span className="text-[13px] font-bold text-slate-700 leading-snug">60+ реализованных проектов</span>
              </div>
              
-             <div className="pt-4 border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
-                <div className="flex items-center gap-4">
+             <div className="border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+                <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                     <Globe size={20} className="text-indigo-400" />
                   </div>
