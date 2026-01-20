@@ -197,7 +197,9 @@ const syncWithCloud = useCallback(async () => {
     setCheckoutProduct(null);
     setActiveSecretProduct(null);
     setView(newView);
-    if (newView === 'account') fetchUserAccess(userIdentifier, userInfo?.username || '');
+    
+    // Вместо userInfo?.username пиши так:
+    (typeof userInfo !== 'undefined' ? userInfo?.username : '')
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
