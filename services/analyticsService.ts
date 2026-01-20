@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V30: ГАРАНТИЯ НИКА
- * Приоритет ника над ID для Sessions и Permissions.
+ * СУПЕРМОЗГ V31: ГАРАНТИЯ ДАННЫХ
+ * Исправляет пропуски ника и вкладок в Sessions.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -26,32 +26,32 @@ export const getDetailedTgUser = () => {
 
     const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
     
-    // ПРИОРИТЕТ: Ник > Кэшированный ник > ID
+    // ПРИОРИТЕТ: Реальный ник из TG > Кэш > ID
     let username = '@guest';
     if (userData?.username) {
       username = `@${userData.username.replace(/^@/, '')}`;
-    } else if (localStorage.getItem('olga_cache_nick') && localStorage.getItem('olga_cache_nick') !== 'undefined') {
-      username = localStorage.getItem('olga_cache_nick')!;
-    } else if (userData?.id) {
-      username = String(userData.id); // Если ника нет, используем ID без @
+    } else {
+      const cached = localStorage.getItem('olga_cache_nick');
+      if (cached && cached !== 'undefined' && cached !== '@guest') {
+        username = cached;
+      } else if (userData?.id) {
+        username = `@id${userData.id}`;
+      }
     }
 
     const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
-    // Обновляем кэш только если данные реальные
     if (userData?.id) {
       localStorage.setItem('olga_cache_id', userId);
       if (userData.username) {
         localStorage.setItem('olga_cache_nick', `@${userData.username.replace(/^@/, '')}`);
+      } else {
+        localStorage.setItem('olga_cache_nick', `@id${userData.id}`);
       }
       localStorage.setItem('olga_cache_name', fullName);
     }
 
-    return { 
-      tg_id: userId, 
-      username: username, 
-      displayName: fullName 
-    };
+    return { tg_id: userId, username: username, displayName: fullName };
   } catch (e) {
     return { tg_id: '000000', username: '@guest', displayName: 'User' };
   }
@@ -70,15 +70,26 @@ const sendToScript = async (payload: any) => {
       return DEFAULT_WEBHOOK;
     })();
 
+    // Небольшая пауза для инициализации TG SDK при первом запуске
+    if (payload.type === 'session_start') {
+      await new Promise(r => setTimeout(r, 500));
+    }
+
     const userInfo = getDetailedTgUser();
     
-    // ВАЖНО: utmSource — это то, что идет в колонку D листа Sessions
-    // Мы принудительно ставим туда username (ник)
+    // Формируем максимально подробный объект, чтобы скрипт точно нашел вкладку и ник
     const data: any = {
       ...payload,
+      // Дублируем поля пути для разных версий скриптов
+      city: payload.city || payload.path || 'home',
+      path: payload.city || payload.path || 'home',
+      page: payload.city || payload.path || 'home',
+      
       tgUsername: userInfo.username,
       dateStr: new Date().toLocaleString('ru-RU'),
-      utmSource: userInfo.username // Здесь теперь ВСЕГДА ник, если он есть
+      // utmSource идет в колонку D/E в зависимости от настроек вашего скрипта
+      utmSource: userInfo.username,
+      userId: userInfo.tg_id
     };
 
     fetch(webhook, {
@@ -88,7 +99,7 @@ const sendToScript = async (payload: any) => {
       body: JSON.stringify(data)
     }).catch(e => console.error('Log error:', e));
 
-    console.log(`🚀 [SENT] -> ${data.type} | User: ${userInfo.username}`);
+    console.log(`🚀 [LOG] ${data.type} | Path: ${data.city} | User: ${data.utmSource}`);
   } catch (err) {
     console.error('Send error:', err);
   }
@@ -127,6 +138,7 @@ export const analyticsService = {
     await sendToScript({
       type: 'path_update',
       city: path,
+      path: path,
       country: 'RU',
       sessionId: sid
     });

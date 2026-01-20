@@ -51,13 +51,13 @@ const App: React.FC = () => {
     
     const userInfo = getDetailedTgUser();
     
-    // Собираем варианты для проверки
+    // Собираем варианты для проверки, включая forcedId (который мы передадим при старте)
     const rawIds = [
       forcedId,
-      userInfo.username, // @Olga_lav
-      userInfo.tg_id,    // 1843449768
-      userInfo.username?.replace(/^@/, ''), // Olga_lav
-      `@${userInfo.username?.replace(/^@/, '')}`, // @Olga_lav (гарантировано)
+      userInfo.username,
+      userInfo.tg_id,
+      userInfo.username?.replace(/^@/, ''),
+      `@${userInfo.username?.replace(/^@/, '')}`,
       userIdentifier
     ];
     
@@ -68,7 +68,8 @@ const App: React.FC = () => {
         .filter(id => id !== 'guest' && id !== 'none' && id !== '000000' && id !== 'undefined')
     ));
 
-    // Параллельная проверка всех вариантов для скорости
+    console.log("🔍 Проверка доступа для:", targetIds);
+
     await Promise.all(targetIds.map(async (id) => {
       try {
         const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
@@ -79,10 +80,12 @@ const App: React.FC = () => {
           const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
           if (newAccess.length > 0) {
             setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            console.log(`✅ Доступ подтвержден для: ${id}`);
+            console.log(`✅ Доступ подтвержден для: ${id}`, newAccess);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Ошибка запроса доступа:", e);
+      }
     }));
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
 
@@ -125,6 +128,7 @@ const App: React.FC = () => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
+        // После загрузки каталога еще раз проверяем доступы
         fetchUserAccess();
       }
     } catch (e) {}
@@ -133,7 +137,7 @@ const App: React.FC = () => {
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
     
-    // ВАЖНО: Устанавливаем НИК как основной идентификатор
+    // ВАЖНО: Устанавливаем НИК немедленно
     setUserIdentifier(userInfo.username);
     
     analyticsService.startSession().then(sid => {
@@ -141,7 +145,9 @@ const App: React.FC = () => {
     });
 
     syncWithCloud();
-    fetchUserAccess();
+    // Проверяем доступ МГНОВЕННО по текущим данным, не дожидаясь состояния
+    fetchUserAccess(userInfo.username);
+    fetchUserAccess(userInfo.tg_id);
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -150,7 +156,13 @@ const App: React.FC = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
 
-  const purchasedProducts = useMemo(() => products.filter(p => userPurchasedIds.includes(String(p.id).trim().toLowerCase()) || userPurchasedIds.includes('all')), [products, userPurchasedIds]);
+  const purchasedProducts = useMemo(() => {
+    return products.filter(p => {
+      const pid = String(p.id).trim().toLowerCase();
+      return userPurchasedIds.includes(pid) || userPurchasedIds.includes('all');
+    });
+  }, [products, userPurchasedIds]);
+
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
