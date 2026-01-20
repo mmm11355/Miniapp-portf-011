@@ -5,9 +5,9 @@
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_cached_tg_user_v7';
+const CACHED_USER_KEY = 'olga_cached_tg_user_v9';
 // ВАШ ТЕКУЩИЙ WEBHOOK
-const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbz10cekQSLd-wYMGnxGPJ-gnIGD6eKs-DQUEmFsX-EOQ3vtBNoHXmOI9h0xsLSIzdg/exec';
+const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 export const getDetailedTgUser = () => {
   try {
@@ -18,7 +18,7 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // 1. Пытаемся взять из SDK (самый надежный способ)
+    // 1. Попытка через официальный объект (Mobile)
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
@@ -26,49 +26,67 @@ export const getDetailedTgUser = () => {
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // 2. ГЛУБОКИЙ ПАРСИНГ: Если SDK еще не проснулся или мы на десктопе
+    // 2. ГЛУБОКИЙ ПАРСИНГ (Desktop + Fallback)
     if (!userId || !username) {
-      const source = decodeURIComponent(tg?.initData || window.location.hash || window.location.search);
-      
-      if (!userId) {
-        const idMatch = source.match(/"id":(\d+)/) || source.match(/id=(\d+)/);
-        if (idMatch) userId = idMatch[1];
-      }
-      
-      if (!username) {
-        const userMatch = source.match(/"username":"([^"]+)"/) || source.match(/username=([^&]+)/);
-        if (userMatch && userMatch[1]) {
-          username = `@${userMatch[1].replace(/^@/, '')}`;
+      const rawData = tg?.initData || window.location.hash.slice(1) || window.location.search.slice(1);
+      if (rawData) {
+        const params = new URLSearchParams(rawData);
+        const userJson = params.get('user');
+        
+        if (userJson) {
+          try {
+            const u = JSON.parse(decodeURIComponent(userJson));
+            if (!userId) userId = u.id ? String(u.id) : null;
+            if (!username) username = u.username ? `@${u.username.replace(/^@/, '')}` : null;
+            if (!fullName) fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+          } catch (e) {}
+        }
+
+        // Если через JSON не вышло, добиваем регулярками
+        if (!userId) {
+          const idMatch = rawData.match(/id=(\d+)/) || rawData.match(/"id":(\d+)/);
+          if (idMatch) userId = idMatch[1];
+        }
+        if (!username) {
+          const userMatch = rawData.match(/username=([^&]+)/) || rawData.match(/"username":"([^"]+)"/);
+          if (userMatch) username = `@${decodeURIComponent(userMatch[1]).replace(/^@/, '')}`;
         }
       }
     }
 
-    // 3. Кэширование для стабильности
-    if (userId) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
+    // 3. Кэширование
+    if (userId || username) {
+      const current = { 
+        userId: userId || (username ? `UID_${username.replace('@','')}` : null), 
+        username, 
+        fullName 
+      };
+      if (current.userId) localStorage.setItem(CACHED_USER_KEY, JSON.stringify(current));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
       if (cached) {
         const c = JSON.parse(cached);
-        userId = userId || c.userId;
-        username = username || c.username;
-        fullName = fullName || c.fullName;
+        userId = c.userId;
+        username = c.username;
+        fullName = c.fullName;
       }
     }
 
-    // ВАЖНО: Префикс ID_ обязателен для работы цикла ожидания в App.tsx
-    const finalId = userId || `ID_${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    // ГАРАНТИЯ: Если данных совсем нет, создаем временный ID с префиксом ID_
+    // Это заставляет App.tsx ждать 2 сек, пока Telegram проснется
+    const tempId = `ID_${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    const finalId = userId || tempId;
     const finalUsername = username || finalId;
     const finalDisplayName = fullName || finalUsername;
 
     return {
       primaryId: finalUsername, 
-      tg_id: userId || 'none',
+      tg_id: finalId, 
       username: finalUsername,
       displayName: finalDisplayName
     };
   } catch (e) {
-    return { primaryId: 'ID_ERROR', tg_id: 'none', username: 'none', displayName: 'User' };
+    return { primaryId: 'ID_ERROR', tg_id: 'ID_ERROR', username: 'none', displayName: 'User' };
   }
 };
 
@@ -89,19 +107,20 @@ const sendToScript = async (payload: any) => {
   
   try {
     const params = new URLSearchParams();
-    const tgId = payload.tgUsername || '---';
+    const fallbackId = payload.tgUsername || payload.email || '---';
     
     for (const key in payload) {
-      const val = payload[key];
-      // Если значение пустое или прочерк, подставляем ID пользователя, чтобы не было пусто в таблице
-      const finalVal = (val === undefined || val === null || val === '---' || val === '' || val === 'none') 
-        ? tgId 
-        : String(val);
-      params.append(key, finalVal);
+      let val = payload[key];
+      // Проверка на пустоту
+      if (val === undefined || val === null || val === '' || val === 'none' || String(val).startsWith('ID_')) {
+        val = fallbackId;
+      }
+      params.append(key, String(val));
     }
 
     const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
 
+    // Используем POST с параметрами в URL - это самый надежный способ для Google Apps Script
     await fetch(finalUrl, {
       method: 'POST',
       mode: 'no-cors',
@@ -158,9 +177,8 @@ export const analyticsService = {
     await sendToScript({
       type: 'session_start',
       dateStr: formatNow(),
-      // Дублируем ID в город и страну для 100% видимости в вашей таблице
       city: tgId, 
-      country: userInfo.username, 
+      country: userInfo.displayName, 
       utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
       sessionId: sessionId,
       tgUsername: tgId
@@ -175,7 +193,7 @@ export const analyticsService = {
       type: 'path_update',
       dateStr: formatNow(),
       city: userInfo.primaryId,
-      country: userInfo.username,
+      country: userInfo.displayName,
       path: path,
       sessionId: sessionId || globalSessionId,
       tgUsername: userInfo.primaryId
