@@ -109,8 +109,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // 500ms задержка — золотой стандарт для 100% готовности WebApp SDK
-      await new Promise(r => setTimeout(r, 500));
+      // 800ms - гарантированное время для инициализации Telegram WebApp SDK в любых условиях
+      await new Promise(r => setTimeout(r, 800));
       const userInfo = getDetailedTgUser();
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
@@ -153,6 +153,7 @@ const App: React.FC = () => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
 
+      // Автоматическое превращение ссылок в кликабельные элементы
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const subParts = part.split(urlRegex);
       return (
@@ -183,27 +184,41 @@ const App: React.FC = () => {
             <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none mt-1">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
+          
+          {/* Улучшенный блок достижений */}
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
-             <div className="flex items-center gap-4 text-[14px] font-bold text-slate-700">
-               <Trophy size={18} className="text-amber-500 shrink-0" /> 
-               <span>Победитель Хакатона EdMarket</span>
+             <div className="flex items-center gap-4 group">
+               <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
+                 <Trophy size={20} className="text-amber-500" />
+               </div>
+               <span className="text-[13px] font-bold text-slate-700 leading-snug">Победитель Хакатона EdMarket</span>
              </div>
-             <div className="flex items-center gap-4 text-[14px] font-bold text-slate-700">
-               <Award size={18} className="text-indigo-500 shrink-0" /> 
-               <span>Специалист GetCourse и Prodamus.XL</span>
+             
+             <div className="flex items-center gap-4 group">
+               <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
+                 <Award size={20} className="text-indigo-500" />
+               </div>
+               <span className="text-[13px] font-bold text-slate-700 leading-snug">Специалист GetCourse и Prodamus.XL</span>
              </div>
-             <div className="flex items-center gap-4 text-[14px] font-bold text-slate-700">
-               <BriefcaseIcon size={18} className="text-emerald-500 shrink-0" /> 
-               <span>60+ реализованных проектов</span>
+             
+             <div className="flex items-center gap-4 group">
+               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
+                 <BriefcaseIcon size={20} className="text-emerald-500" />
+               </div>
+               <span className="text-[13px] font-bold text-slate-700 leading-snug">60+ реализованных проектов</span>
              </div>
-             <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
-                <div className="flex items-center gap-2">
-                  <Globe size={18} className="text-indigo-400" />
-                  <span className="text-[14px] font-bold text-slate-700">Сайт-портфолио</span>
+             
+             <div className="border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
+                    <Globe size={20} className="text-indigo-400" />
+                  </div>
+                  <span className="text-[13px] font-bold text-slate-700">Сайт-портфолио</span>
                 </div>
-                <span className="text-indigo-600 underline text-[14px] font-bold">vk.cc/cOx50S</span>
+                <span className="text-indigo-600 underline text-[13px] font-black tracking-tight pr-1">vk.cc/cOx50S</span>
              </div>
           </div>
+
           <div className="px-2 pt-2">
             <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
               <div className="flex flex-col items-start relative z-10 text-left">

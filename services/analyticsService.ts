@@ -2,46 +2,52 @@
 import { Session, OrderLog } from '../types';
 
 const STORAGE_KEY = 'olga_analytics_sessions_v2';
+const CACHED_USER_KEY = 'olga_cached_tg_user_v1';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 export const getDetailedTgUser = () => {
   try {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-    }
+    if (tg) tg.ready();
 
-    // Попытка 1: Стандартный объект
     let user = tg?.initDataUnsafe?.user;
 
-    // Попытка 2: Парсинг сырой строки (самый надежный метод для ID)
+    // Метод "Супермозг" №1: Если объект пуст, парсим сырую строку initData
     if (!user && tg?.initData) {
       try {
         const params = new URLSearchParams(tg.initData);
         const userStr = params.get('user');
-        if (userStr) {
-          user = JSON.parse(userStr);
-        }
-      } catch (parseError) {
-        console.error("Ошибка парсинга initData:", parseError);
-      }
+        if (userStr) user = JSON.parse(userStr);
+      } catch (e) {}
     }
 
+    // Извлекаем данные
     const id = user?.id ? String(user.id) : null;
     const username = user?.username ? `@${user.username}` : null;
     const firstName = user?.first_name || '';
     const lastName = user?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
 
-    // ГАРАНТИРОВАННЫЙ ИДЕНТИФИКАТОР: Приоритет Ник -> ID -> guest
-    // Если ника нет, ID 1843449768 пойдет во все поля, и в таблице не будет Unknown
-    const finalIdentifier = username || id || 'guest';
+    // Метод "Супермозг" №2: Кэширование. Если нашли ID — запоминаем. Если не нашли — берем из кэша.
+    if (id) {
+      const cacheData = { id, username, fullName };
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(cacheData));
+    }
 
+    const cached = localStorage.getItem(CACHED_USER_KEY);
+    const cachedUser = cached ? JSON.parse(cached) : null;
+
+    const finalId = id || cachedUser?.id || null;
+    const finalUsername = username || cachedUser?.username || finalId || 'guest';
+    const finalDisplayName = fullName || cachedUser?.fullName || finalUsername || 'Пользователь';
+
+    // ВАЖНО: Если ника нет, во все идентификаторы пишем ID (например, 1843449768)
+    // Это уберет "Unknown" из вашей таблицы навсегда.
     return {
-      primaryId: finalIdentifier, 
-      tg_id: id || finalIdentifier,
-      username: username || id || 'none',
-      displayName: fullName || username || id || 'Пользователь'
+      primaryId: finalUsername === 'guest' ? 'guest' : finalUsername,
+      tg_id: finalId || 'none',
+      username: finalUsername,
+      displayName: finalDisplayName
     };
   } catch (e) {
     return { primaryId: 'guest', tg_id: 'none', username: 'none', displayName: 'Гость' };
@@ -65,14 +71,12 @@ const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
   try {
-    // Очищаем payload от возможных undefined/null перед отправкой
-    const cleanPayload = JSON.parse(JSON.stringify(payload));
     await fetch(webhook, {
       method: 'POST',
       mode: 'no-cors',
       redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(cleanPayload)
+      body: JSON.stringify(payload)
     });
   } catch (e) {}
 };
@@ -126,7 +130,6 @@ export const analyticsService = {
   startSession: async (forcedUsername?: string): Promise<string> => {
     const userInfo = getDetailedTgUser();
     const tgId = forcedUsername || userInfo.primaryId;
-    
     const safeId = tgId.replace(/[^a-zA-Z0-9]/g, '') || 'user';
     const sessionId = `${safeId}_${Math.random().toString(36).substr(2, 4)}`;
     globalSessionId = sessionId;
@@ -137,7 +140,7 @@ export const analyticsService = {
       action: 'log',
       type: 'session_start',
       sessionId: sessionId,
-      name: userInfo.displayName === 'Пользователь' ? tgId : userInfo.displayName,
+      name: userInfo.displayName,
       email: tgId,
       tgUsername: tgId,
       tg_id: userInfo.tg_id,
@@ -157,7 +160,7 @@ export const analyticsService = {
       action: 'log',
       type: 'path_update',
       sessionId: sId,
-      name: userInfo.displayName === 'Пользователь' ? userInfo.primaryId : userInfo.displayName,
+      name: userInfo.displayName,
       email: userInfo.primaryId,
       tgUsername: userInfo.primaryId,
       tg_id: userInfo.tg_id,
