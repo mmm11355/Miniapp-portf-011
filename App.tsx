@@ -189,14 +189,17 @@ const syncWithCloud = useCallback(async () => {
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
-  const handleNavigate = (newView: ViewState) => {
+ const handleNavigate = (newView: ViewState) => {
     setActiveDetailProduct(null);
     setCheckoutProduct(null);
     setActiveSecretProduct(null);
     setView(newView);
     
-    // Вместо userInfo?.username пиши так:
-    if (newView === 'account') fetchUserAccess(userIdentifier, "");
+    // Если переходим в кабинет, запрашиваем доступы по ID
+    if (newView === 'account') {
+      fetchUserAccess(userIdentifier, "");
+    }
+    
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
