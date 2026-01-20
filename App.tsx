@@ -30,6 +30,20 @@ const App: React.FC = () => {
       });
     }
   }, [view, userIdentifier]);
+
+  // Эта переменная фильтрует товары для экрана "МОИ"
+  const purchasedProducts = useMemo(() => {
+    // Если из таблицы еще ничего не пришло, возвращаем пустой список
+    if (!userPurchasedIds || userPurchasedIds.length === 0) return [];
+
+    return products.filter(p => {
+      const productId = String(p.id).toLowerCase().trim();
+      // Проверяем, есть ли ID товара в списке доступов из таблицы
+      return userPurchasedIds.some(accessId => 
+        String(accessId).toLowerCase().trim() === productId
+      );
+    });
+  }, [products, userPurchasedIds]);
   
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -55,37 +69,49 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
- const fetchUserAccess = useCallback(async (userId: string, username: string) => {
-    if (!telegramConfig.googleSheetWebhook) return;
+ const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
+    // Используем переданные ID или те, что уже есть в приложении
+    const currentId = userId || userIdentifier;
+    const currentName = username || (typeof userInfo !== 'undefined' ? userInfo?.username : '');
+
+    if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') {
+      console.log("Prop check failed:", { url: !!telegramConfig.googleSheetWebhook, id: currentId });
+      return;
+    }
     
     setIsRefreshingAccess(true);
     const variants = new Set<string>();
     
-    if (userId) variants.add(userId.toString().toLowerCase());
-    if (username) {
-      variants.add(username.toLowerCase());
-      variants.add(username.replace('@', '').toLowerCase());
+    variants.add(currentId.toString().toLowerCase().trim());
+    if (currentName) {
+      variants.add(currentName.toLowerCase().trim());
+      variants.add(currentName.replace('@', '').toLowerCase().trim());
     }
     
     const idsParam = Array.from(variants).join(',');
+    // Добавляем к URL параметр action и userIds
     const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
 
     try {
+      console.log("Запрос к таблице:", url);
       const res = await fetch(url);
       const data = await res.json();
 
       if (data.status === 'success' && Array.isArray(data.access)) {
         const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+        console.log("Получены доступы из таблицы:", cleanAccess);
+        
+        // Устанавливаем доступы
         setUserPurchasedIds(cleanAccess);
-        console.log("Доступы получены:", cleanAccess);
+      } else {
+        console.log("Таблица вернула пустой доступ или ошибку:", data);
       }
     } catch (e) {
-      console.error("Error fetching access:", e);
+      console.error("Ошибка сети при получении доступов:", e);
     } finally {
       setIsRefreshingAccess(false);
     }
-  }, [telegramConfig.googleSheetWebhook]); // Здесь закрывается useCallback
- 
+  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
 const syncWithCloud = useCallback(async () => {
   // ... дальше твой код
@@ -314,12 +340,12 @@ const syncWithCloud = useCallback(async () => {
    </div>
  )}
       
-      {view === 'account' && (
+     {view === 'account' && (
   <div className="space-y-4 page-transition -mt-2">
     <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
       <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
       
-      {/* ИСПРАВЛЕННАЯ КНОПКА: теперь она передает данные для поиска в таблице */}
+      {/* Кнопка теперь передает актуальный ID пользователя при нажатии */}
       <button 
         onClick={() => fetchUserAccess(userIdentifier, userInfo?.username || '')} 
         className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
@@ -330,7 +356,7 @@ const syncWithCloud = useCallback(async () => {
     </div>
 
     {purchasedProducts.length === 0 ? (
-      /* ЭКРАН ПУСТОГО СПИСКА */
+      /* ЭКРАН ПУСТОГО СПИСКА — если в таблице ничего не найдено */
       <div className="bg-white rounded-[3.5rem] border border-slate-100 p-12 shadow-sm mx-1 flex flex-col items-center text-center space-y-10 min-h-[460px] justify-center">
         <div className="w-24 h-24 bg-[#f8fafc] rounded-3xl flex items-center justify-center border border-slate-50 shadow-inner">
           <Lock size={32} className="text-slate-200" strokeWidth={1.5} />
@@ -338,12 +364,12 @@ const syncWithCloud = useCallback(async () => {
         <div className="space-y-5">
           <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
           <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-            Здесь будут ваши материалы. Если доступ прописан в таблице, но не появился — нажмите кнопку «Обновить» выше.
+            Здесь будут ваши материалы. Если доступ прописан в таблице, но не появился — нажмите кнопку выше.
           </p>
         </div>
       </div>
     ) : (
-      /* СПИСОК КУПЛЕННЫХ ТОВАРОВ */
+      /* СПИСОК ТОВАРОВ — которые ты разрешила в таблице */
       <div className="grid gap-3 px-1">
         {purchasedProducts.map(p => (
           <div 
@@ -351,10 +377,12 @@ const syncWithCloud = useCallback(async () => {
             className="bg-white p-5 rounded-[2.5rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-[0.97] transition-all cursor-pointer" 
             onClick={() => setActiveSecretProduct(p)}
           >
-            <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover" />
+            <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
             <div className="flex-grow">
               <h3 className="text-sm font-bold text-slate-800 leading-tight mb-1">{p.title}</h3>
-              <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Изучить материал</div>
+              <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+                <CheckCircle size={10} /> Изучить материал
+              </div>
             </div>
             <ChevronRight size={18} className="text-slate-200" />
           </div>
