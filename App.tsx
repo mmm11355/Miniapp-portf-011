@@ -80,11 +80,17 @@ const App: React.FC = () => {
     setIsRefreshingAccess(false);
   }
 
-  // Код твоей функции...
-    
-  }, [telegramConfig]); // Попробуй сократить до этого, если googleSheetWebhook вызывает ошибку
+ } catch (e) {
+      console.error("Error fetching access:", e);
+    } finally {
+      setIsRefreshingAccess(false);
+    }
+  }, [telegramConfig.googleSheetWebhook]); // Проверь, чтобы не было точек ПОСЛЕ скобки ]
 
-  const syncWithCloud = useCallback(async () => {
+const syncWithCloud = useCallback(async () => {
+  // ... дальше твой код
+
+ 
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
