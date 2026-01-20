@@ -1,34 +1,12 @@
 
 /**
- * СУПЕРМОЗГ: ИСПРАВЛЕННЫЙ GOOGLE SCRIPT (Замените ваш doPost этим кодом)
- * 
- * function doPost(e) {
- *   var p = e.parameter; // Читаем данные из URL (самый надежный способ)
- *   var sheetLeads = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Leads");
- *   var sheetSessions = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sessions");
- *   
- *   if (p.type === 'order' || p.type === 'lead') {
- *     sheetLeads.appendRow([
- *       p.product || '', p.price || 0, p.name || '', p.email || '', p.phone || '',
- *       p.utmSource || 'direct', p.orderId || '', p.dateStr || new Date().toLocaleString('ru-RU'),
- *       p.paymentStatus || 'pending', p.agreedToMarketing || 'Нет', p.tgUsername || 'no_id', p.productId || ''
- *     ]);
- *   } else {
- *     sheetSessions.appendRow([
- *       p.dateStr || new Date().toLocaleString('ru-RU'), 
- *       p.tgUsername || '---', // Кладем ID сюда, чтобы он был виден вместо ---
- *       p.username || '---',   // И сюда для верности
- *       p.utmSource || 'direct', 
- *       'none', 'none', p.utmSource || 'direct', 'none', 'none'
- *     ]);
- *   }
- *   return ContentService.createTextOutput("Success");
- * }
+ * СУПЕРМОЗГ: ИСПРАВЛЕННЫЙ GOOGLE SCRIPT (Для doPost в таблице)
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_cached_tg_user_v6';
+const CACHED_USER_KEY = 'olga_cached_tg_user_v7';
+// ВАШ ТЕКУЩИЙ WEBHOOK
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbz10cekQSLd-wYMGnxGPJ-gnIGD6eKs-DQUEmFsX-EOQ3vtBNoHXmOI9h0xsLSIzdg/exec';
 
 export const getDetailedTgUser = () => {
@@ -40,52 +18,57 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // 1. Пытаемся взять из официального объекта
+    // 1. Пытаемся взять из SDK (самый надежный способ)
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
-      username = userObj.username ? `@${userObj.username}` : null;
+      username = userObj.username ? `@${userObj.username.replace(/^@/, '')}` : null;
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // 2. ГЛУБОКИЙ ПАРСИНГ: Если SDK еще не проснулся, выгрызаем ID из URL
-    if (!userId) {
-      const rawData = tg?.initData || new URLSearchParams(window.location.hash.slice(1)).get('tgWebAppData');
-      if (rawData) {
-        // Ищем ID в формате JSON или URL-encoded
-        const idMatch = rawData.match(/id%22%3A(\d+)/) || rawData.match(/"id":(\d+)/) || rawData.match(/id=(\d+)/);
+    // 2. ГЛУБОКИЙ ПАРСИНГ: Если SDK еще не проснулся или мы на десктопе
+    if (!userId || !username) {
+      const source = decodeURIComponent(tg?.initData || window.location.hash || window.location.search);
+      
+      if (!userId) {
+        const idMatch = source.match(/"id":(\d+)/) || source.match(/id=(\d+)/);
         if (idMatch) userId = idMatch[1];
-        const userMatch = rawData.match(/username%22%3A%22([^%"]+)/) || rawData.match(/"username":"([^"]+)"/) || rawData.match(/username=([^&]+)/);
-        if (userMatch) username = `@${userMatch[1]}`;
+      }
+      
+      if (!username) {
+        const userMatch = source.match(/"username":"([^"]+)"/) || source.match(/username=([^&]+)/);
+        if (userMatch && userMatch[1]) {
+          username = `@${userMatch[1].replace(/^@/, '')}`;
+        }
       }
     }
 
-    // 3. Кэш-память
+    // 3. Кэширование для стабильности
     if (userId) {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
       if (cached) {
         const c = JSON.parse(cached);
-        userId = c.userId;
-        username = c.username;
-        fullName = c.fullName;
+        userId = userId || c.userId;
+        username = username || c.username;
+        fullName = fullName || c.fullName;
       }
     }
 
-    // Вместо Unknown генерируем метку устройства, если Telegram совсем не отдает данные
-    const finalId = userId || `DEV_${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+    // ВАЖНО: Префикс ID_ обязателен для работы цикла ожидания в App.tsx
+    const finalId = userId || `ID_${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     const finalUsername = username || finalId;
     const finalDisplayName = fullName || finalUsername;
 
     return {
       primaryId: finalUsername, 
-      tg_id: userId || finalId,
+      tg_id: userId || 'none',
       username: finalUsername,
       displayName: finalDisplayName
     };
   } catch (e) {
-    return { primaryId: 'ERROR', tg_id: 'none', username: 'none', displayName: 'User' };
+    return { primaryId: 'ID_ERROR', tg_id: 'none', username: 'none', displayName: 'User' };
   }
 };
 
@@ -100,22 +83,25 @@ const getWebhookUrl = () => {
   return DEFAULT_WEBHOOK;
 };
 
-// МЕТОД СУПЕРМОЗГА: Дублируем данные в URL параметры
 const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
   
   try {
     const params = new URLSearchParams();
+    const tgId = payload.tgUsername || '---';
+    
     for (const key in payload) {
       const val = payload[key];
-      // Принудительно заменяем пустые значения на ID пользователя
-      params.append(key, (val === undefined || val === null || val === '---' || val === '') ? (payload.tgUsername || '---') : String(val));
+      // Если значение пустое или прочерк, подставляем ID пользователя, чтобы не было пусто в таблице
+      const finalVal = (val === undefined || val === null || val === '---' || val === '' || val === 'none') 
+        ? tgId 
+        : String(val);
+      params.append(key, finalVal);
     }
 
     const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
 
-    // Отправляем POST, но данные Google Script заберет из ссылки (params)
     await fetch(finalUrl, {
       method: 'POST',
       mode: 'no-cors',
@@ -172,7 +158,7 @@ export const analyticsService = {
     await sendToScript({
       type: 'session_start',
       dateStr: formatNow(),
-      // ДУБЛИРУЕМ ID в city и country, чтобы в таблице точно было видно КТО зашел
+      // Дублируем ID в город и страну для 100% видимости в вашей таблице
       city: tgId, 
       country: userInfo.username, 
       utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
