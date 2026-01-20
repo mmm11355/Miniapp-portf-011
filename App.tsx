@@ -109,20 +109,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // ОПТИМАЛЬНОЕ ОЖИДАНИЕ (6 попыток по 500мс = 3 секунды)
-      let attempts = 0;
-      let userInfo = getDetailedTgUser();
-      while (userInfo.tg_id === '000000' && attempts < 6) {
-        await new Promise(r => setTimeout(r, 500));
-        userInfo = getDetailedTgUser();
-        attempts++;
-      }
-
+      // ПРЯМАЯ ИНИЦИАЛИЗАЦИЯ
+      const userInfo = getDetailedTgUser();
       setUserIdentifier(userInfo.primaryId);
-      syncWithCloud();
       
-      const sid = await analyticsService.startSession(userInfo.primaryId);
-      activeSessionId.current = sid;
+      // СРАЗУ ЗАПУСКАЕМ СЕССИЮ (не ждем 3 секунды)
+      analyticsService.startSession(userInfo.primaryId).then(sid => {
+        activeSessionId.current = sid;
+      });
+
+      syncWithCloud();
       fetchUserAccess(userInfo.primaryId);
     };
     init();
@@ -141,6 +137,7 @@ const App: React.FC = () => {
   const handleNavigate = (newView: ViewState) => { 
     setActiveDetailProduct(null); setCheckoutProduct(null); setActiveSecretProduct(null); setView(newView); 
     if (newView === 'account') fetchUserAccess();
+    // Отправляем переход. Если sessionId еще нет, сервис использует nosid
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
@@ -399,7 +396,7 @@ const App: React.FC = () => {
                     <div className={`w-5 h-5 rounded-md border shrink-0 transition-all flex items-center justify-center mt-0.5 ${item.state ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'}`}>
                       {item.state && <CheckCircle size={14} strokeWidth={3} />}
                     </div>
-                    <span className="text-[11px] font-bold text-slate-500 leading-tight">{item.label}</span>
+                    <span className="text-[11px] font-bold text-slate-500 leisure-tight">{item.label}</span>
                   </label>
                 ))}
               </div>

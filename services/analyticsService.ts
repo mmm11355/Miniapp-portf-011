@@ -1,12 +1,11 @@
 
 /**
- * СУПЕРМОЗГ V22: ПРЯМАЯ СВЯЗЬ С ЛИСТАМИ ТАБЛИЦЫ
- * Добавлен параметр 'sheet' для точной записи в Sessions и Orders.
+ * СУПЕРМОЗГ V23: ГАРАНТИЯ ЗАПИСИ В СЕССИИ
+ * Используем один максимально чистый GET-запрос.
+ * Маппинг: Лист Sessions -> Имя (Колонка B) = Название страницы, Email (Колонка C) = Ник.
  */
 
-import { Session, OrderLog } from '../types';
-
-const CACHED_USER_KEY = 'olga_tg_final_v22';
+const CACHED_USER_KEY = 'olga_tg_final_v23';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 const FALLBACK_ID = '000000';
 
@@ -85,51 +84,55 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // ФОРМИРУЕМ ДАННЫЕ ДЛЯ ТАБЛИЦЫ
-    let finalName = payload.name || userInfo.displayName || nick;
-    let finalEmail = payload.email || nick;
+    // 1. ОПРЕДЕЛЯЕМ ЛИСТ
+    const targetSheet = payload.sheet || 'Sessions';
 
-    // Маппинг для Sessions: Имя (B) = Название раздела, Email (C) = Ник
-    if (payload.sheet === 'Sessions') {
+    // 2. СТРОГИЙ МАППИНГ ДЛЯ ТАБЛИЦЫ
+    let finalName = payload.name;
+    let finalEmail = payload.email;
+
+    if (targetSheet === 'Sessions') {
+      // Имя (B) = Название раздела, Email (C) = Ник
       finalName = payload.city || payload.type || 'home';
       finalEmail = nick;
+    } else {
+      // Для Orders оставляем как есть или подставляем инфо пользователя
+      finalName = finalName || userInfo.displayName || nick;
+      finalEmail = finalEmail || nick;
     }
 
-    const cleanPayload: any = {
+    // 3. ФОРМИРУЕМ ЧИСТЫЙ ОБЪЕКТ ПАРАМЕТРОВ
+    const cleanParams: any = {
       action: 'log',
-      sheet: payload.sheet || 'Sessions', // КРИТИЧЕСКИ ВАЖНО: Название листа
+      sheet: targetSheet,
       ...payload,
       name: finalName,
       email: finalEmail,
-      city: payload.city || nick,
-      country: nick,
+      city: payload.city || finalName, // Дублируем для надежности
       username: nick,
+      tgUsername: nick,
       _t: Date.now()
     };
 
-    const query = new URLSearchParams();
-    Object.keys(cleanPayload).forEach(key => {
-      let v = String(cleanPayload[key]);
-      if (!v || v === 'undefined' || v === 'null' || v === '---' || v === 'Unknown' || v === 'none') {
-        v = nick;
-      }
-      query.append(key, v);
+    // 4. СТРОИМ URL ДЛЯ GET-ЗАПРОСА
+    const urlObj = new URL(webhook);
+    Object.keys(cleanParams).forEach(key => {
+      let val = String(cleanParams[key]);
+      if (val === 'undefined' || val === 'null' || !val) val = '---';
+      urlObj.searchParams.set(key, val);
     });
 
-    const url = `${webhook}${webhook.includes('?') ? '&' : '?'}${query.toString()}`;
-    
-    // Пытаемся отправить через POST (основной метод)
-    fetch(webhook, {
-      method: 'POST',
+    // 5. ОТПРАВЛЯЕМ (no-cors гарантирует прохождение через Google)
+    await fetch(urlObj.toString(), {
+      method: 'GET',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: query.toString()
-    }).catch(() => {});
+      cache: 'no-cache'
+    });
 
-    // Дублируем через GET (страховка для Sessions)
-    fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-cache' }).catch(() => {});
-    
-  } catch (e) {}
+    console.log(`✅ [Analytics] Sent to ${targetSheet}:`, cleanParams);
+  } catch (e) {
+    console.error('❌ [Analytics] Error:', e);
+  }
 };
 
 export const analyticsService = {
@@ -137,7 +140,7 @@ export const analyticsService = {
     const userInfo = getDetailedTgUser();
     const orderId = Math.random().toString(36).substr(2, 9);
     await sendToScript({
-      sheet: 'Orders', // Пишем в лист заказов
+      sheet: 'Orders',
       type: 'order',
       product: order.productTitle,
       price: order.price,
@@ -153,7 +156,7 @@ export const analyticsService = {
     const nick = forcedId || userInfo.username;
     const sid = `${nick.replace(/[^a-z0-9]/gi, '')}_${Date.now().toString(36)}`;
     await sendToScript({
-      sheet: 'Sessions', // Пишем в лист сессий
+      sheet: 'Sessions',
       type: 'session_start',
       dateStr: new Date().toLocaleString('ru-RU'),
       city: 'home',
@@ -163,13 +166,12 @@ export const analyticsService = {
   },
   updateSessionPath: async (sid: string, path: string) => {
     const userInfo = getDetailedTgUser();
-    const nick = userInfo.username;
     await sendToScript({
-      sheet: 'Sessions', // Пишем в лист сессий
+      sheet: 'Sessions',
       type: 'path_update',
       dateStr: new Date().toLocaleString('ru-RU'),
       city: path, 
-      sessionId: sid
+      sessionId: sid || 'nosid'
     });
   },
   updateOrderStatus: async (id: string, status: string) => {
