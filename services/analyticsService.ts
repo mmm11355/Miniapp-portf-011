@@ -5,80 +5,80 @@ export const getDetailedTgUser = () => {
   if (user) {
     return {
       tg_id: String(user.id),
-      username: user.username ? `@${user.username}` : `id${user.id}`,
-      first_name: user.first_name || '',
-      last_name: user.last_name || ''
+      username: user.username ? `@${user.username}` : `no_nick`,
+      // Склеенная строка для полной надежности
+      full_info: user.username ? `@${user.username} (${user.id})` : `ID: ${user.id}`
     };
   }
-  return { tg_id: '000000', username: 'guest', first_name: 'Guest', last_name: '' };
+  return { tg_id: '000000', username: 'guest', full_info: 'Web_Guest' };
 };
 
 export const analyticsService = {
   async startSession() {
     const user = getDetailedTgUser();
-    const sessionId = `SID_${Date.now()}`;
+    const sid = `SID_${Date.now()}`;
     
+    // Формируем "жирный" пакет данных
     const payload = {
       action: 'logSession',
       sheet: 'Sessions',
-      sessionId: sessionId,
+      sessionId: sid,
+      // Отправляем во всех возможных форматах, чтобы скрипт точно зацепил
       tg_id: user.tg_id,
-      username: user.username, // Тот самый захват ника
+      userId: user.tg_id, 
+      username: user.username,
+      tgUsername: user.username,
+      full_user_info: user.full_info, // Новое поле со склейкой
       path: 'home',
       timestamp: new Date().toLocaleString('ru-RU')
     };
 
-    try {
-      await fetch('https://script.google.com/macros/s/AKfycbzSknlqmsHRC1em9V4GedYF6awp6F_aexWtCWU0lxr-u1TVMdCJEeYr7dR1NHW6Z4wc/exec', {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {}
-    return sessionId;
+    this.rawSend(payload);
+    return sid;
   },
 
-  async updateSessionPath(sessionId: string, path: string) {
-    if (!sessionId) return;
+  async updateSessionPath(sid: string, path: string) {
+    if (!sid) return;
     const user = getDetailedTgUser();
-    const payload = {
+    this.rawSend({
       action: 'logSession',
       sheet: 'Sessions',
-      sessionId: sessionId,
+      sessionId: sid,
       tg_id: user.tg_id,
       username: user.username,
+      full_user_info: user.full_info,
       path: path,
       timestamp: new Date().toLocaleString('ru-RU')
-    };
-    try {
-      await fetch('https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec', {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {}
+    });
   },
 
-  async logOrder(orderData: any) {
+  async logOrder(order: any) {
     const user = getDetailedTgUser();
-    const orderId = `ORD_${Date.now()}`;
-    const payload = {
+    const oid = `ORD_${Date.now()}`;
+    this.rawSend({
       action: 'logOrder',
       sheet: 'Orders',
-      ...orderData,
-      id: orderId,
+      id: oid,
       tg_id: user.tg_id,
       username: user.username,
+      full_user_info: user.full_info,
+      productTitle: order.productTitle,
+      price: order.price,
+      customerEmail: order.customerEmail,
       timestamp: new Date().toLocaleString('ru-RU')
-    };
-    try {
-      await fetch('https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec', {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {}
-    return { id: orderId };
+    });
+    return { id: oid };
+  },
+
+  rawSend(data: any) {
+    const url = 'https://script.google.com/macros/s/AKfycbzSknlqmsHRC1em9V4GedYF6awp6F_aexWtCWU0lxr-u1TVMdCJEeYr7dR1NHW6Z4wc/exec';
+    
+    // Используем самый стабильный метод отправки
+    fetch(url, {
+      method: 'POST',
+      mode: 'no-cors', 
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(data)
+    }).catch(e => console.error("Script Error", e));
   }
 };
