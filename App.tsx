@@ -36,7 +36,7 @@ const App: React.FC = () => {
     return {
       botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58',
       chatId: '-1002095569247',
-      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbxCtqzpqsj7AnncEuVJDTClelM18JfwYjvCuMxr-8GSEWcx0u21_7a9RnDANIM5yexJ/exec'
+      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbwmGU6u-mzWG23jQxFpLpBcTo33oxFOVILHB11H1nUcaYYG8eJfIBo2OJfWIHGhSnEg/exec'
     };
   });
 
@@ -44,48 +44,46 @@ const App: React.FC = () => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
-  const fetchUserAccess = useCallback(async (forcedId?: string) => {
-    if (!telegramConfig.googleSheetWebhook) return;
-    setIsRefreshingAccess(true);
-    const userInfo = getDetailedTgUser();
-    const variants = new Set<string>();
-    if (forcedId) {
-      variants.add(String(forcedId).trim().toLowerCase());
-    }
-    if (userInfo.username && userInfo.username !== '@guest') {
-      const pureNick = userInfo.username.replace(/^@/, '').toLowerCase();
-      variants.add(`@${pureNick}`);
-      variants.add(pureNick);
-    }
-    if (userInfo.tg_id && userInfo.tg_id !== '000000') {
-      variants.add(String(userInfo.tg_id).trim());
-    }
-    const targetIds = Array.from(variants);
-    
-    // 1. Склеиваем все варианты (ID и Ники) в одну строку через запятую
-    const idsParam = targetIds.join(',');
-    
-    try {
-      // 2. Делаем ОДИН запрос сразу по всем идентификаторам
-      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
-      
-      const res = await fetch(url, { redirect: 'follow' });
-      const data = await res.json();
+  const fetchUserAccess = async (userId: string, username: string) => {
+  if (!telegramConfig.googleSheetWebhook) return;
+  
+  setIsRefreshingAccess(true);
+  
+  // 1. Готовим варианты (ID, @Ник, ник без @)
+  const variants = new Set<string>();
+  if (userId) variants.add(userId.toString().toLowerCase());
+  if (username) {
+    variants.add(username.toLowerCase());
+    variants.add(username.replace('@', '').toLowerCase());
+  }
+  
+  const idsParam = Array.from(variants).join(',');
+  const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
 
-      if (data.status === 'success' && Array.isArray(data.access)) {
-        // 3. Получаем список ID купленных продуктов (например ["1shop"])
-        const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-        
-        if (newAccess.length > 0) {
-          // Обновляем состояние доступов
-          setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-        }
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.status === 'success' && Array.isArray(data.access)) {
+      // 2. Чистим полученные ID продуктов (например ["1shop"])
+      const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+      
+      // 3. ЗАПИСЫВАЕМ СРАЗУ В ОБЕ ВОЗМОЖНЫЕ ПЕРЕМЕННЫЕ (для надежности)
+      if (typeof setUserPurchasedIds === 'function') {
+        setUserPurchasedIds(cleanAccess);
       }
-    } catch (e) {
-      console.error("Ошибка при получении доступа:", e);
-    } finally {
-      setIsRefreshingAccess(false);
+      if (typeof setUserAccess === 'function') {
+        setUserAccess(cleanAccess);
+      }
+      
+      console.log("ДОСТУПЫ ОБНОВЛЕНЫ:", cleanAccess);
     }
+  } catch (e) {
+    console.error("ОШИБКА ДОСТУПА:", e);
+  } finally {
+    setIsRefreshingAccess(false);
+  }
+
   }, [telegramConfig.googleSheetWebhook]);
 
   const syncWithCloud = useCallback(async () => {
