@@ -109,12 +109,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Супермозг: Ждем до 1.5 секунд для гарантированного получения данных пользователя
+      // Супермозг: Ждем до 2 секунд для гарантированного получения данных пользователя
       let userInfo = getDetailedTgUser();
       let attempts = 0;
       
-      while ((!userInfo.tg_id || userInfo.tg_id === 'none') && attempts < 5) {
-        await new Promise(r => setTimeout(r, 300));
+      while ((!userInfo.tg_id || userInfo.tg_id === 'none') && attempts < 6) {
+        await new Promise(r => setTimeout(r, 350));
         userInfo = getDetailedTgUser();
         attempts++;
       }
@@ -323,6 +323,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Модальное окно Лонгрида */}
       {activeDetailProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
@@ -347,6 +348,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Секретный контент (раздел "МОИ") */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
@@ -364,6 +366,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Оформление заказа */}
       {checkoutProduct && (
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">

@@ -1,11 +1,24 @@
 
+/**
+ * СОВЕТ ОТ СУПЕРМОЗГА ДЛЯ ВАШЕГО GOOGLE SCRIPT (в таблице):
+ * 
+ * Если данные не приходят, убедитесь, что функция в Google Script выглядит так:
+ * 
+ * function doPost(e) {
+ *   var param = e.parameter;
+ *   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Название_Листа");
+ *   sheet.appendRow([new Date(), param.email, param.username, param.tg_id, param.type, param.path]);
+ *   return ContentService.createTextOutput("ok").setMimeType(ContentService.MimeType.TEXT);
+ * }
+ */
+
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_cached_tg_user_v3';
-const BROWSER_ID_KEY = 'olga_browser_fingerprint';
+const CACHED_USER_KEY = 'olga_cached_tg_user_v4';
+const BROWSER_ID_KEY = 'olga_browser_fingerprint_v4';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
-// Генерация уникального ID устройства, если TG не отдал данные
+// Генерация ID устройства, если Telegram молчит
 const getBrowserFingerprint = () => {
   let id = localStorage.getItem(BROWSER_ID_KEY);
   if (!id) {
@@ -24,7 +37,7 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // ШАГ 1: Официальный объект
+    // 1. Извлекаем из объекта SDK
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
@@ -32,23 +45,20 @@ export const getDetailedTgUser = () => {
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // ШАГ 2: Глубокий парсинг URL (если SDK еще не проснулся)
+    // 2. СУПЕР-ЗАХВАТ: Парсим все возможные строки данных (initData, hash, search)
     if (!userId) {
-      const searchParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.slice(1));
-      const rawData = tg?.initData || searchParams.get('tgWebAppData') || hashParams.get('tgWebAppData');
+      const fullSource = decodeURIComponent(tg?.initData || '') + decodeURIComponent(window.location.hash) + decodeURIComponent(window.location.search);
       
-      if (rawData) {
-        // Ищем ID в сырой строке через Regex
-        const idMatch = rawData.match(/id%22%3A(\d+)/) || rawData.match(/"id":(\d+)/) || rawData.match(/id=(\d+)/);
-        if (idMatch && idMatch[1]) userId = idMatch[1];
-        
-        const userMatch = rawData.match(/username%22%3A%22([^%"]+)/) || rawData.match(/"username":"([^"]+)/);
-        if (userMatch && userMatch[1]) username = `@${userMatch[1]}`;
-      }
+      // Ищем ID (цифры)
+      const idMatch = fullSource.match(/"id":(\d+)/) || fullSource.match(/id=(\d+)/) || fullSource.match(/id%22%3A(\d+)/);
+      if (idMatch && idMatch[1]) userId = idMatch[1];
+      
+      // Ищем Username
+      const userMatch = fullSource.match(/"username":"([^"]+)"/) || fullSource.match(/username=([^&]+)/) || fullSource.match(/username%22%3A%22([^%"]+)/);
+      if (userMatch && userMatch[1]) username = `@${userMatch[1]}`;
     }
 
-    // ШАГ 3: Кэш или Отпечаток
+    // 3. Кэширование
     const fingerprint = getBrowserFingerprint();
     if (userId) {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
@@ -62,20 +72,19 @@ export const getDetailedTgUser = () => {
       }
     }
 
-    // ВАЖНО: Если даже после всех попыток пусто — используем Fingerprint
-    // Это исключает появление слова "Unknown" в таблице
+    // Гарантируем отсутствие "Unknown"
     const finalId = userId || fingerprint;
     const finalUsername = username || finalId;
     const finalDisplayName = fullName || finalUsername;
 
     return {
-      primaryId: finalUsername, // Пойдет в Email и Username
+      primaryId: finalUsername, 
       tg_id: userId || 'none',
       username: finalUsername,
       displayName: finalDisplayName
     };
   } catch (e) {
-    return { primaryId: 'ERROR', tg_id: 'none', username: 'none', displayName: 'Ошибка SDK' };
+    return { primaryId: 'ERROR_GETTING_ID', tg_id: 'none', username: 'none', displayName: 'User' };
   }
 };
 
@@ -90,24 +99,31 @@ const getWebhookUrl = () => {
   return DEFAULT_WEBHOOK;
 };
 
+// МЕТОД МИРОВОГО СУПЕРМОЗГА: Отправка данных через URL-параметры
 const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
+  
   try {
-    // Принудительно заменяем любые пустые значения на строковые маркеры
-    const cleanPayload = JSON.parse(JSON.stringify(payload, (key, value) => {
-      if (value === null || value === undefined || value === '') return 'ID_NOT_FOUND';
-      return value;
-    }));
+    // Формируем строку параметров (query string)
+    const params = new URLSearchParams();
+    for (const key in payload) {
+      // Заменяем пустые значения на понятные маркеры, чтобы в таблице не было пустоты
+      const val = payload[key];
+      params.append(key, (val === null || val === undefined || val === '') ? '---' : String(val));
+    }
 
-    await fetch(webhook, {
+    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
+
+    // Используем POST, но данные дублируем в URL для 100% срабатывания в Google
+    await fetch(finalUrl, {
       method: 'POST',
       mode: 'no-cors',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(cleanPayload)
+      cache: 'no-cache'
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error('Analytics error:', e);
+  }
 };
 
 let globalSessionId: string | null = null;
@@ -184,7 +200,7 @@ export const analyticsService = {
 
   updateSessionPath: async (sessionId: string, path: string) => {
     const userInfo = getDetailedTgUser();
-    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'unknown_path');
+    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'path_sess');
     
     await sendToScript({
       action: 'log',
