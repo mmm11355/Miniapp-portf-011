@@ -48,7 +48,7 @@ export const analyticsService = {
   },
 
   rawSend(data: any) {
-    const url = 'https://script.google.com/macros/s/AKfycbxCtqzpqsj7AnncEuVJDTClelM18JfwYjvCuMxr-8GSEWcx0u21_7a9RnDANIM5yexJ/exec';
+    const url = 'https://script.google.com/macros/s/AKfycbwmGU6u-mzWG23jQxFpLpBcTo33oxFOVILHB11H1nUcaYYG8eJfIBo2OJfWIHGhSnEg/exec';
     fetch(url, {
       method: 'POST',
       mode: 'no-cors',
