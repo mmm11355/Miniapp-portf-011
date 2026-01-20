@@ -197,14 +197,22 @@ const syncWithCloud = useCallback(async () => {
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
- const handleNavigate = (newView: ViewState) => {
+ const handleNavigate = (newView: ViewState, product?: Product | null) => {
+    // 1. Сначала сбрасываем старые состояния
     setActiveDetailProduct(null);
     setCheckoutProduct(null);
     setActiveSecretProduct(null);
+    
+    // 2. Если передан продукт (нажали "Подробнее"), открываем его
+    if (product) {
+      setActiveDetailProduct(product);
+    }
+    
+    // 3. Переключаем вкладку
     setView(newView);
     
+    // 4. Если перешли в "Личный кабинет", обновляем доступы
     if (newView === 'account') {
-      // Берем имя из нашего userInfo, который мы создали выше
       const username = userInfo?.username || userInfo?.first_name || "";
       fetchUserAccess(userIdentifier, username);
     }
