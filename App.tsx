@@ -263,23 +263,56 @@ const syncWithCloud = useCallback(async () => {
           </div>
         </div>
       )}
-      {view === 'shop' && (
-        <div className="space-y-6 page-transition">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-5 px-5">
-            {['All', ...categories].map(c => (
-              <button key={c} onClick={() => setFilter(c)} className={`px-4 py-2 rounded-xl text-[12px] font-bold uppercase border transition-all ${filter === c ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'}`}>{c === 'All' ? 'Все' : c}</button>
-            ))}
-          </div>
-          <div className="grid gap-6 mt-4">
-            {filteredProducts.map(p => (
-              <div key={p.id} style={{ backgroundColor: p.cardBgColor || '#ffffff' }} className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4">
-                <div className="flex justify-between gap-4"><h3 style={{ color: p.titleColor || '#1e293b' }} className="text-sm font-bold leading-snug">{p.title}</h3><span className="text-sm font-black text-slate-900">{p.price} ₽</span></div>
-                <MediaRenderer url={p.imageUrl} type={p.mediaType} className="w-full aspect-video object-cover rounded-2xl shadow-sm cursor-pointer" onClick={() => p.useDetailModal ? setActiveDetailProduct(p) : setCheckoutProduct(p)} />
-                <button onClick={() => p.useDetailModal ? setActiveDetailProduct(p) : setCheckoutProduct(p)} style={{ backgroundColor: p.buttonColor }} className="w-full py-4 rounded-2xl text-white font-bold text-[10px] uppercase shadow-lg active:scale-95 transition-all">{p.buttonText}</button>
-              </div>))}
-          </div>
-        </div>
-      )}
+     {view === 'shop' && (
+   <div className="space-y-6 page-transition">
+     {/* Категории (фильтры) */}
+     <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-5 px-5">
+       {['All', ...categories].map(c => (
+         <button key={c} onClick={() => setFilter(c)} className={`px-4 py-2 rounded-xl text-[12px] font-bold uppercase border transition-all ${filter === c ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'}`}>{c === 'All' ? 'Все' : c}</button>
+       ))}
+     </div>
+     
+     <div className="grid gap-6 mt-4">
+       {filteredProducts.map(p => {
+         // 1. Проверяем: вписала ли ты этот товар (p.id) пользователю в таблицу?
+         const hasAccess = userPurchasedIds.includes(String(p.id).toLowerCase().trim());
+
+         return (
+           <div key={p.id} style={{ backgroundColor: p.cardBgColor || '#ffffff' }} className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4 relative">
+             
+             {/* Заголовок и цена */}
+             <div className="flex justify-between gap-4">
+               <h3 style={{ color: p.titleColor || '#1e293b' }} className="text-sm font-bold leading-snug">{p.title}</h3>
+               {/* Если ты дала доступ, цену скрываем и ставим галочку */}
+               <span className="text-sm font-black text-slate-900">
+                 {hasAccess ? <CheckCircle size={16} className="text-green-500" /> : `${p.price} ₽`}
+               </span>
+             </div>
+
+             {/* Картинка товара */}
+             <MediaRenderer 
+               url={p.imageUrl} 
+               type={p.mediaType} 
+               className="w-full aspect-video object-cover rounded-2xl shadow-sm cursor-pointer" 
+               // Клик по картинке: если есть доступ — смотрим, если нет — платим
+               onClick={() => hasAccess ? setActiveDetailProduct(p) : setCheckoutProduct(p)} 
+             />
+
+             {/* Кнопка: меняет текст и действие в зависимости от таблицы */}
+             <button 
+               onClick={() => hasAccess ? setActiveDetailProduct(p) : setCheckoutProduct(p)} 
+               style={{ backgroundColor: hasAccess ? '#10b981' : p.buttonColor }} 
+               className="w-full py-4 rounded-2xl text-white font-bold text-[10px] uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+             >
+               {hasAccess && <ShieldCheck size={14} />} 
+               {hasAccess ? 'МАТЕРИАЛЫ ОТКРЫТЫ' : p.buttonText}
+             </button>
+           </div>
+         );
+       })}
+     </div>
+   </div>
+ )}
       {view === 'account' && (
         <div className="space-y-4 page-transition -mt-2">
           <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
