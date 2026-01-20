@@ -123,16 +123,24 @@ const App: React.FC = () => {
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   useLayoutEffect(() => {
-    // ВАЖНО: Добавил только эту строку для пробуждения TG API
-    (window as any).Telegram?.WebApp?.ready();
+    // 1. Активируем Telegram WebApp
+    if ((window as any).Telegram?.WebApp) {
+      (window as any).Telegram.WebApp.ready();
+    }
     
+    // 2. Получаем детальные данные пользователя
     const userInfo = getDetailedTgUser();
-    setUserIdentifier(userInfo.username);
-    analyticsService.startSession().then(sid => {
+    
+    // 3. Отображаем ник или ID внизу (для визуальной проверки)
+    setUserIdentifier(userInfo.username !== '@guest' ? userInfo.username : `ID: ${userInfo.tg_id}`);
+
+    // 4. Запускаем сессию аналитики ПЕРЕДАВАЯ данные пользователя (чтобы они ушли в таблицу)
+    analyticsService.startSession(userInfo).then(sid => {
       activeSessionId.current = sid;
     });
+    
     syncWithCloud();
-  }, []); // Пустой массив, как у тебя в оригинале
+  }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -299,10 +307,20 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4"><div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative"><button onClick={() => setCheckoutProduct(null)} className="absolute top-6 right-6 text-slate-300 p-2"><X size={24} /></button><div className="text-center space-y-2 pt-2"><h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500">ОФОРМЛЕНИЕ ЗАКАЗА</h2><p className="text-md font-bold text-slate-900 leading-tight uppercase tracking-tight">{checkoutProduct.title}</p></div>
           <form onSubmit={async (e) => {
             e.preventDefault(); if (!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) return;
+            
+            // Внедрено: Получение свежих данных TG для заказа
+            const userInfo = getDetailedTgUser();
+            
             const order = await analyticsService.logOrder({
               productTitle: checkoutProduct.title, price: checkoutProduct.price, productId: checkoutProduct.id,
-              customerName, customerEmail, customerPhone: '---', utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct', agreedToMarketing
+              customerName, customerEmail, customerPhone: '---', 
+              utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct', 
+              agreedToMarketing,
+              // Передаем TG инфо в заказ
+              tg_id: userInfo.tg_id,
+              username: userInfo.username
             } as any);
+            
             let paymentUrl = checkoutProduct.prodamusId?.startsWith('http') ? checkoutProduct.prodamusId : 'https://antol.payform.ru/';
             const connector = paymentUrl.includes('?') ? '&' : '?';
             paymentUrl += `${connector}order_id=${order.id}&customer_email=${encodeURIComponent(customerEmail)}`; setPaymentIframeUrl(paymentUrl); setCheckoutProduct(null);
