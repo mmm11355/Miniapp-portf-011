@@ -1,31 +1,11 @@
 
 /**
- * СУПЕРМОЗГ V24: ПРЯМОЙ КАНАЛ СВЯЗИ
- * Никаких сложных объектов. Только прямая отправка параметров строкой.
- * Гарантирует попадание в Колонку B (Имя) и Колонку C (Email).
+ * СУПЕРМОЗГ V26: БЕЗОТКАЗНАЯ ПЕРЕДАЧА
+ * Отправляем данные всеми возможными ключами одновременно.
+ * Гарантируем заполнение колонок B, C, D и далее.
  */
 
-const CACHED_USER_KEY = 'olga_tg_final_v24';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
-const FALLBACK_ID = '000000';
-
-const deepParseUser = (rawStr: string): any => {
-  if (!rawStr) return null;
-  try {
-    const cleanStr = rawStr.replace(/^#/, '').replace(/^\?/, '');
-    const params = new URLSearchParams(cleanStr);
-    const userParam = params.get('user');
-    if (userParam) return JSON.parse(decodeURIComponent(userParam));
-    const webAppData = params.get('tgWebAppData');
-    if (webAppData) return deepParseUser(decodeURIComponent(webAppData));
-    for (const [_, value] of params.entries()) {
-      if (value && (value.includes('{"id":') || value.includes('%7B%22id%22'))) {
-        try { return JSON.parse(decodeURIComponent(value)); } catch (e) {}
-      }
-    }
-  } catch (e) {}
-  return null;
-};
 
 export const getDetailedTgUser = () => {
   try {
@@ -33,97 +13,128 @@ export const getDetailedTgUser = () => {
     if (tg) tg.ready();
 
     let userData: any = null;
+    
+    // 1. Прямой доступ
     if (tg?.initDataUnsafe?.user) {
       userData = tg.initDataUnsafe.user;
     }
 
+    // 2. Глубокий парсинг URL
     if (!userData) {
-      const sources = [window.location.hash, window.location.search, tg?.initData].filter(Boolean);
-      for (const s of sources) {
-        userData = deepParseUser(s!);
-        if (userData) break;
+      const search = window.location.search || window.location.hash;
+      const match = search.match(/user=({.*?})/);
+      if (match) {
+        try { userData = JSON.parse(decodeURIComponent(match[1])); } catch (e) {}
       }
     }
 
-    const userId = userData?.id ? String(userData.id) : null;
-    const username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : (userId ? `@id${userId}` : null);
-    const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : null;
+    const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
+    const username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : (userData?.id ? `@id${userData.id}` : (localStorage.getItem('olga_cache_nick') || '@guest'));
+    const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
-    const finalId = userId || FALLBACK_ID;
-    const finalNick = username || `@guest_${finalId}`;
-
-    if (userId || username) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId: finalId, username: finalNick, fullName }));
+    // Обновляем кэш
+    if (userData?.id) {
+      localStorage.setItem('olga_cache_id', String(userData.id));
+      localStorage.setItem('olga_cache_nick', username);
+      localStorage.setItem('olga_cache_name', fullName);
     }
 
-    return { primaryId: finalNick, tg_id: finalId, username: finalNick, displayName: fullName || finalNick };
+    return { 
+      primaryId: username, 
+      tg_id: userId, 
+      username: username, 
+      displayName: fullName 
+    };
   } catch (e) {
-    return { primaryId: `@guest_${FALLBACK_ID}`, tg_id: FALLBACK_ID, username: `@guest_${FALLBACK_ID}`, displayName: 'User' };
+    return { primaryId: '@guest', tg_id: '000000', username: '@guest', displayName: 'User' };
   }
 };
 
-const sendToScript = async (payload: any) => {
-  const webhook = ((): string => {
-    try {
+const sendToScript = (payload: any) => {
+  try {
+    const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.googleSheetWebhook?.includes('exec')) return parsed.googleSheetWebhook;
       }
-    } catch (e) {}
-    return DEFAULT_WEBHOOK;
-  })();
+      return DEFAULT_WEBHOOK;
+    })();
 
-  try {
     const userInfo = getDetailedTgUser();
-    const nick = userInfo.username;
-
-    // СТРОГИЙ МАППИНГ ДЛЯ ВАШЕЙ ТАБЛИЦЫ
     const targetSheet = payload.sheet || 'Sessions';
-    
-    // По вашему скриншоту: Колонку B (Имя) заполняем разделом, Колонку C (Email) - ником
-    let nameVal = payload.name || payload.city || payload.type || 'home';
-    let emailVal = payload.email || nick;
+    const currentPath = payload.city || payload.name || 'home';
 
-    // Собираем параметры вручную
-    const params = [
-      `action=log`,
-      `sheet=${encodeURIComponent(targetSheet)}`,
-      `name=${encodeURIComponent(nameVal)}`,
-      `email=${encodeURIComponent(emailVal)}`,
-      `city=${encodeURIComponent(nameVal)}`,
-      `country=${encodeURIComponent(nick)}`,
-      `username=${encodeURIComponent(nick)}`,
-      `type=${encodeURIComponent(payload.type || 'info')}`,
-      `dateStr=${encodeURIComponent(new Date().toLocaleString('ru-RU'))}`,
-      `_t=${Date.now()}`
-    ];
+    // МЕГА-ОБЪЕКТ СО ВСЕМИ ВОЗМОЖНЫМИ КЛЮЧАМИ
+    // FIX: Removed duplicate keys 'Name' and 'Email' to resolve TypeScript object literal errors.
+    const data: Record<string, any> = {
+      // Имя (Обычно колонка B)
+      name: currentPath,
+      Name: currentPath,
+      'Имя': currentPath,
+      
+      // Email / Ник (Обычно колонка C)
+      email: userInfo.username,
+      Email: userInfo.username,
+      'Почта': userInfo.username,
+      'username': userInfo.username,
+      
+      // ID (Обычно колонка D - судя по вашему скрину)
+      id: userInfo.tg_id,
+      ID: userInfo.tg_id,
+      tg_id: userInfo.tg_id,
+      userId: userInfo.tg_id,
+      'ID пользователя': userInfo.tg_id,
 
-    if (payload.orderId) params.push(`orderId=${encodeURIComponent(payload.orderId)}`);
-    if (payload.product) params.push(`product=${encodeURIComponent(payload.product)}`);
-    if (payload.price) params.push(`price=${encodeURIComponent(payload.price)}`);
-    if (payload.sessionId) params.push(`sessionId=${encodeURIComponent(payload.sessionId)}`);
+      // Дополнительно
+      action: 'log',
+      sheet: targetSheet,
+      type: payload.type || 'navigation',
+      city: currentPath,
+      sessionId: payload.sessionId || `SID_${Date.now()}`,
+      dateStr: new Date().toLocaleString('ru-RU'),
+      timestamp: Date.now(),
+      _t: Date.now()
+    };
 
-    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.join('&')}`;
+    // Если это заказ
+    if (payload.orderId) {
+      data.orderId = payload.orderId;
+      data.product = payload.product;
+      data.price = payload.price;
+      if (payload.name) data.customerName = payload.name;
+      if (payload.email) data.customerEmail = payload.email;
+    }
 
-    // Используем максимально простой fetch
-    await fetch(finalUrl, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache'
-    });
+    // Сборка URL без ошибок
+    const query = Object.entries(data)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&');
 
-    console.log(`[OK] Logged to ${targetSheet}: ${nameVal}`);
-  } catch (e) {
-    console.error('[ERR]', e);
+    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${query}`;
+
+    // Метод 1: Fetch с keepalive (самый современный)
+    fetch(finalUrl, { 
+      method: 'GET', 
+      mode: 'no-cors', 
+      cache: 'no-cache',
+      keepalive: true 
+    }).catch(() => {});
+
+    // Метод 2: Image Beacon (дублируем для надежности)
+    const beacon = new Image();
+    beacon.src = finalUrl;
+
+    console.log(`📡 [SENT] -> ${targetSheet} | Path: ${currentPath} | User: ${userInfo.username}`);
+  } catch (err) {
+    console.error('Critical log error:', err);
   }
 };
 
 export const analyticsService = {
   logOrder: async (order: any) => {
-    const userInfo = getDetailedTgUser();
-    const orderId = Math.random().toString(36).substr(2, 9);
-    await sendToScript({
+    const orderId = `ORD${Date.now()}`;
+    sendToScript({
       sheet: 'Orders',
       type: 'order',
       product: order.productTitle,
@@ -135,31 +146,29 @@ export const analyticsService = {
     return { ...order, id: orderId };
   },
   startSession: async (forcedId?: string) => {
-    const userInfo = getDetailedTgUser();
-    const nick = forcedId || userInfo.username;
-    const sid = `sid_${Date.now()}`;
-    await sendToScript({
+    const sid = `SID_${Date.now()}`;
+    sendToScript({
       sheet: 'Sessions',
-      type: 'session_start',
+      type: 'start',
       city: 'home',
       sessionId: sid
     });
     return sid;
   },
   updateSessionPath: async (sid: string, path: string) => {
-    await sendToScript({
+    sendToScript({
       sheet: 'Sessions',
-      type: 'path_update',
+      type: 'path',
       city: path, 
-      sessionId: sid || 'sid_none'
+      sessionId: sid
     });
   },
   updateOrderStatus: async (id: string, status: string) => {
-    await sendToScript({
+    sendToScript({
       sheet: 'Orders',
-      type: 'order_update',
+      type: 'status_update',
       orderId: id,
-      paymentStatus: status === 'paid' ? 'success' : 'failed'
+      paymentStatus: status
     });
   }
 };
