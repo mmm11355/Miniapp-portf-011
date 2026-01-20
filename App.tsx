@@ -56,16 +56,13 @@ const App: React.FC = () => {
     
     // ПРОВЕРЯЕМ ВСЕ ВАРИАНТЫ НИКА (с @, без @, любой регистр)
     if (forcedId) {
-      variants.add(String(forcedId).trim());
       variants.add(String(forcedId).trim().toLowerCase());
     }
 
     if (userInfo.username && userInfo.username !== '@guest') {
-      const pureNick = userInfo.username.replace(/^@/, '');
+      const pureNick = userInfo.username.replace(/^@/, '').toLowerCase();
       variants.add(`@${pureNick}`);
-      variants.add(`@${pureNick.toLowerCase()}`);
       variants.add(pureNick);
-      variants.add(pureNick.toLowerCase());
     }
     
     if (userInfo.tg_id && userInfo.tg_id !== '000000') {
@@ -73,7 +70,7 @@ const App: React.FC = () => {
     }
 
     const targetIds = Array.from(variants);
-    console.log("🔐 [AccessCheck] Проверка доступов для:", targetIds);
+    console.log("🔐 [AccessCheck] Ищем доступы для:", targetIds);
 
     try {
       await Promise.all(targetIds.map(async (id) => {
@@ -86,12 +83,9 @@ const App: React.FC = () => {
             const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
             if (newAccess.length > 0) {
               setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-              console.log(`✅ [Access Found] для ${id}:`, newAccess);
             }
           }
-        } catch (e) {
-          console.error("❌ [Access Error]:", e);
-        }
+        } catch (e) {}
       }));
     } finally {
       setIsRefreshingAccess(false);
@@ -137,8 +131,6 @@ const App: React.FC = () => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
-        
-        // После загрузки каталога СРАЗУ проверяем доступы
         fetchUserAccess();
       }
     } catch (e) {}
@@ -147,11 +139,9 @@ const App: React.FC = () => {
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
     setUserIdentifier(userInfo.username);
-    
     analyticsService.startSession().then(sid => {
       activeSessionId.current = sid;
     });
-
     syncWithCloud();
   }, []);
 
@@ -164,17 +154,11 @@ const App: React.FC = () => {
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
       const pid = String(p.id).trim().toLowerCase();
-      
-      const hasAccess = userPurchasedIds.some(accessId => {
+      // ЕСЛИ В ТАБЛИЦЕ Permissions ЕСТЬ id ИЛИ "all"
+      return userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        if (cleanAccess === 'all') return true;
-        // Прямое совпадение '1shop' === '1shop'
-        if (cleanAccess === pid) return true;
-        // Частичное совпадение (если в Catalog просто '1', а в Permissions '1shop')
-        return (cleanAccess.includes(pid) && pid.length > 0) || (pid.includes(cleanAccess) && cleanAccess.length > 0);
+        return cleanAccess === 'all' || cleanAccess === pid;
       });
-
-      return hasAccess;
     });
   }, [products, userPurchasedIds]);
 
@@ -354,7 +338,7 @@ const App: React.FC = () => {
               <div className="space-y-5">
                 <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
                 <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-                  Здесь будут ваши материалы. Если они не появились автоматически, нажмите кнопку «Обновить доступы» выше.
+                  Здесь будут ваши материалы. Если покупка не появилась автоматически — нажмите «Обновить доступы» выше.
                 </p>
               </div>
             </div>

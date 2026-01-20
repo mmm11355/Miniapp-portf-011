@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V37: ОКОНЧАТЕЛЬНЫЙ ПОРЯДОК
- * Устраняет "кашу" в Sessions и нормализует передачу ника.
+ * СУПЕРМОЗГ V38: ВОЗВРАТ НИКОВ И СТАБИЛЬНОСТИ
+ * Исправляет отображение ников в Sessions и восстанавливает связь со скриптом.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -16,14 +16,7 @@ export const getDetailedTgUser = () => {
       userData = tg.initDataUnsafe.user;
     }
 
-    if (!userData) {
-      const urlPart = window.location.hash || window.location.search;
-      const match = urlPart.match(/user=({.*?})/);
-      if (match) {
-        try { userData = JSON.parse(decodeURIComponent(match[1])); } catch (e) {}
-      }
-    }
-
+    // Если нет данных от TG, ищем в кэше, но не даем кэшу перекрыть свежие данные
     const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
     
     let username = '@guest';
@@ -31,7 +24,7 @@ export const getDetailedTgUser = () => {
       username = `@${userData.username.replace(/^@/, '')}`;
     } else {
       const cached = localStorage.getItem('olga_cache_nick');
-      if (cached && cached !== 'undefined' && cached !== '@guest') {
+      if (cached && cached !== '@guest' && cached !== 'undefined') {
         username = cached;
       } else if (userData?.id) {
         username = `@id${userData.id}`;
@@ -40,11 +33,10 @@ export const getDetailedTgUser = () => {
 
     const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
+    // Обновляем кэш только если данные валидны
     if (userData?.id) {
-      localStorage.setItem('olga_cache_id', userId);
-      if (userData.username) {
-        localStorage.setItem('olga_cache_nick', `@${userData.username.replace(/^@/, '')}`);
-      }
+      localStorage.setItem('olga_cache_id', String(userData.id));
+      if (userData.username) localStorage.setItem('olga_cache_nick', `@${userData.username}`);
       localStorage.setItem('olga_cache_name', fullName);
     }
 
@@ -56,7 +48,6 @@ export const getDetailedTgUser = () => {
 
 const sendToScript = async (payload: any) => {
   try {
-    const userInfo = getDetailedTgUser();
     const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
@@ -69,27 +60,24 @@ const sendToScript = async (payload: any) => {
     })();
 
     const freshUser = getDetailedTgUser();
-    // ГАРАНТИЯ: Вкладка всегда идет первой в данных
-    const currentTab = payload.path || payload.city || 'home';
+    const currentPath = payload.path || payload.city || 'home';
 
-    // Собираем данные так, чтобы скрипт не путал колонки
+    // ВАЖНО: Используем ТЕ ЖЕ ключи, что были в самой первой рабочей версии
     const data: any = {
-      vkladka: currentTab,
-      city: currentTab,
-      path: currentTab,
+      date: new Date().toLocaleString('ru-RU'),
+      path: currentPath,
+      city: currentPath,
+      vkladka: currentPath,
       type: payload.type,
       tgUsername: freshUser.username,
+      sessionId: payload.sessionId || '', 
       userId: freshUser.tg_id,
-      // sessionId в самом конце, чтобы не мешать основным полям
-      sid: payload.sessionId || '',
-      date: new Date().toLocaleString('ru-RU')
+      name: freshUser.displayName
     };
 
-    // Если это заказ, добавляем поля заказа
     if (payload.type === 'order') {
       data.product = payload.product;
       data.price = payload.price;
-      data.name = payload.name;
       data.email = payload.email;
     }
 
@@ -98,10 +86,10 @@ const sendToScript = async (payload: any) => {
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(data)
-    }).catch(e => console.error('Log error:', e));
+    }).catch(e => console.log('Silent log failed'));
 
   } catch (err) {
-    console.error('Send error:', err);
+    console.error('Analytics Error:', err);
   }
 };
 
@@ -115,7 +103,7 @@ export const analyticsService = {
       price: order.price,
       name: order.customerName,
       email: order.customerEmail,
-      tgUsername: userInfo.username
+      sessionId: orderId
     });
     return { ...order, id: orderId };
   },
