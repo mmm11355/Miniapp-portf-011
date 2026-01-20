@@ -36,7 +36,7 @@ const App: React.FC = () => {
     return {
       botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58',
       chatId: '-1002095569247',
-      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbzSknlqmsHRC1em9V4GedYF6awp6F_aexWtCWU0lxr-u1TVMdCJEeYr7dR1NHW6Z4wc/exec'
+      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbyBmhnrtJM6Dz2LYeXEULg7aEbSNso9HLRA4FeZ4QS3T-x0scYusLIBLztMMDhhNXET/exec'
     };
   });
 
