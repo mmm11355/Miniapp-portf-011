@@ -52,7 +52,7 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       for (const id of targetIds) {
-        if (!id || id === 'guest' || id === 'none' || id.startsWith('ID_')) continue;
+        if (!id || id === 'guest' || id === 'none' || id === '000000') continue;
         const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`, { redirect: 'follow' });
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.access)) {
@@ -109,10 +109,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // СУПЕРМОЗГ: Ждем Telegram до 2 секунд, чтобы не отправить 'Unknown'
+      // СУПЕРМОЗГ: Ждем Telegram до 2 секунд. 
+      // Важно: условие userInfo.tg_id === '000000' соответствует FALLBACK_ID в сервисе.
       let userInfo = getDetailedTgUser();
       let attempts = 0;
-      while (userInfo.tg_id.startsWith('ID_') && attempts < 5) {
+      while (userInfo.tg_id === '000000' && attempts < 5) {
         await new Promise(r => setTimeout(r, 400));
         userInfo = getDetailedTgUser();
         attempts++;
@@ -373,7 +374,6 @@ const App: React.FC = () => {
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) return;
-              // Fix: analyticsService.logOrder expects only 1 argument. Removed activeSessionId.current.
               const order = await analyticsService.logOrder({
                 productTitle: checkoutProduct.title, price: checkoutProduct.price, productId: checkoutProduct.id,
                 customerName, customerEmail, customerPhone: '---',
