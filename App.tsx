@@ -315,41 +315,56 @@ const syncWithCloud = useCallback(async () => {
  )}
       
       {view === 'account' && (
-        <div className="space-y-4 page-transition -mt-2">
-          <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
-            <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
-            <button onClick={() => fetchUserAccess()} className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
-            ><RefreshCw size={12} className={isRefreshingAccess ? 'animate-spin' : ''} />{isRefreshingAccess ? 'Обновляем...' : 'Обновить доступы'}</button>
+  <div className="space-y-4 page-transition -mt-2">
+    <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
+      <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
+      
+      {/* ИСПРАВЛЕННАЯ КНОПКА: теперь она передает данные для поиска в таблице */}
+      <button 
+        onClick={() => fetchUserAccess(userIdentifier, userInfo?.username || '')} 
+        className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
+      >
+        <RefreshCw size={12} className={isRefreshingAccess ? 'animate-spin' : ''} />
+        {isRefreshingAccess ? 'Обновляем...' : 'Обновить доступы'}
+      </button>
+    </div>
+
+    {purchasedProducts.length === 0 ? (
+      /* ЭКРАН ПУСТОГО СПИСКА */
+      <div className="bg-white rounded-[3.5rem] border border-slate-100 p-12 shadow-sm mx-1 flex flex-col items-center text-center space-y-10 min-h-[460px] justify-center">
+        <div className="w-24 h-24 bg-[#f8fafc] rounded-3xl flex items-center justify-center border border-slate-50 shadow-inner">
+          <Lock size={32} className="text-slate-200" strokeWidth={1.5} />
+        </div>
+        <div className="space-y-5">
+          <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
+          <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
+            Здесь будут ваши материалы. Если доступ прописан в таблице, но не появился — нажмите кнопку «Обновить» выше.
+          </p>
+        </div>
+      </div>
+    ) : (
+      /* СПИСОК КУПЛЕННЫХ ТОВАРОВ */
+      <div className="grid gap-3 px-1">
+        {purchasedProducts.map(p => (
+          <div 
+            key={p.id} 
+            className="bg-white p-5 rounded-[2.5rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-[0.97] transition-all cursor-pointer" 
+            onClick={() => setActiveSecretProduct(p)}
+          >
+            <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover" />
+            <div className="flex-grow">
+              <h3 className="text-sm font-bold text-slate-800 leading-tight mb-1">{p.title}</h3>
+              <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Изучить материал</div>
+            </div>
+            <ChevronRight size={18} className="text-slate-200" />
           </div>
-          {purchasedProducts.length === 0 ? (
-            <div className="bg-white rounded-[3.5rem] border border-slate-100 p-12 shadow-sm mx-1 flex flex-col items-center text-center space-y-10 min-h-[460px] justify-center">
-              <div className="w-24 h-24 bg-[#f8fafc] rounded-3xl flex items-center justify-center border border-slate-50 shadow-inner"><Lock size={32} className="text-slate-200" strokeWidth={1.5} /></div>
-              <div className="space-y-5"><h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3><p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">Здесь будут ваши материалы. Если покупка не появилась автоматически — нажмите «Обновить доступы» выше.</p></div>
-            </div>) : (
-            <div className="grid gap-3 px-1">{purchasedProducts.map(p => (
-              <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-[0.97] transition-all cursor-pointer" onClick={() => setActiveSecretProduct(p)}>
-                <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover" /><div className="flex-grow"><h3 className="text-sm font-bold text-slate-800 leading-tight mb-1">{p.title}</h3><div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Изучить материал</div></div><ChevronRight size={18} className="text-slate-200" />
-              </div>))}
-            </div>)}
-        </div>
-      )}
-      {activeDetailProduct && (
-        <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
-          <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]"><button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><ChevronLeft size={20} /></button><span className="text-[9px] font-black uppercase text-slate-400 truncate px-4 tracking-[0.2em]">ПОДРОБНОСТИ</span><button onClick={() => setActiveDetailProduct(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={20} /></button></div>
-          <div className="flex-grow overflow-y-auto p-6 space-y-5 no-scrollbar pb-32"><h2 className="text-[16px] font-black leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2><MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} /><div className="text-slate-600 text-[13px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
-          </div><div className="absolute bottom-6 left-0 right-0 z-[4600] px-6 flex justify-center"><button onClick={() => { const p = activeDetailProduct; setActiveDetailProduct(null); p.section === 'shop' ? setCheckoutProduct(p) : (p.externalLink && window.open(p.externalLink, '_blank')) }}
-            style={{ backgroundColor: activeDetailProduct.buttonColor }} className="w-full py-5 rounded-2xl text-white font-bold text-[11px] uppercase tracking-[0.2em] shadow-2xl active:scale-[0.98] transition-all">{activeDetailProduct.detailButtonText}</button></div>
-        </div>
-      )}
-      {activeSecretProduct && (
-        <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
-          <div className="p-4 flex items-center justify-between border-b bg-white"><button onClick={() => setActiveSecretProduct(null)} className="p-2 text-slate-400"><ChevronLeft size={20} /></button><span className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">ВАШ ДОСТУП</span><button onClick={() => setActiveSecretProduct(null)} className="p-2 text-slate-400"><X size={20} /></button></div>
-          <div className="flex-grow overflow-y-auto p-6 space-y-6 pb-10 no-scrollbar">
-            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3"><CheckCircle size={20} className="text-emerald-500 shrink-0" /><p className="text-[12px] font-bold text-emerald-800">Материал разблокирован.</p></div>
-            <h2 className="text-xl font-black uppercase leading-tight">{activeSecretProduct.title}</h2><div className="text-slate-700 text-[15px] leading-relaxed space-y-4">{activeSecretProduct.secretContent ? renderRichText(activeSecretProduct.secretContent) : <p className="text-slate-300">Контент скоро появится...</p>}</div>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+      
       {checkoutProduct && (
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4"><div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative"><button onClick={() => setCheckoutProduct(null)} className="absolute top-6 right-6 text-slate-300 p-2"><X size={24} /></button><div className="text-center space-y-2 pt-2"><h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500">ОФОРМЛЕНИЕ ЗАКАЗА</h2><p className="text-md font-bold text-slate-900 leading-tight uppercase tracking-tight">{checkoutProduct.title}</p></div>
           <form onSubmit={async (e) => {
