@@ -52,7 +52,7 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       for (const id of targetIds) {
-        if (!id || id === 'guest' || id === 'none' || id.startsWith('DEV_')) continue;
+        if (!id || id === 'guest' || id === 'none' || id.startsWith('ID_')) continue;
         const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`, { redirect: 'follow' });
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.access)) {
@@ -109,12 +109,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Супермозг: Ждем до 2 секунд для гарантированного получения данных пользователя
+      // СУПЕРМОЗГ: Ждем Telegram до 2 секунд, чтобы не отправить 'Unknown'
       let userInfo = getDetailedTgUser();
       let attempts = 0;
-      
-      while ((!userInfo.tg_id || userInfo.tg_id === 'none') && attempts < 6) {
-        await new Promise(r => setTimeout(r, 350));
+      while (userInfo.tg_id.startsWith('ID_') && attempts < 5) {
+        await new Promise(r => setTimeout(r, 400));
         userInfo = getDetailedTgUser();
         attempts++;
       }
@@ -159,7 +158,6 @@ const App: React.FC = () => {
     return parts.map((part, i) => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
-
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const subParts = part.split(urlRegex);
       return (
@@ -323,7 +321,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно Лонгрида */}
       {activeDetailProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
@@ -348,7 +345,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Секретный контент (раздел "МОИ") */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
@@ -366,7 +362,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Оформление заказа */}
       {checkoutProduct && (
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">
@@ -379,8 +374,8 @@ const App: React.FC = () => {
               e.preventDefault();
               if (!agreedToTerms || !agreedToPrivacy || !agreedToMarketing) return;
               const order = await analyticsService.logOrder({
-                productTitle: checkoutProduct.title, price: checkoutProduct.price,
-                customerName, customerEmail, customerPhone: 'none',
+                productTitle: checkoutProduct.title, price: checkoutProduct.price, productId: checkoutProduct.id,
+                customerName, customerEmail, customerPhone: '---',
                 utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
                 agreedToMarketing
               } as any, activeSessionId.current);

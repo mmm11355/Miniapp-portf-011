@@ -1,32 +1,32 @@
 
 /**
- * СОВЕТ ОТ СУПЕРМОЗГА ДЛЯ ВАШЕГО GOOGLE SCRIPT (в таблице):
- * 
- * Если данные не приходят, убедитесь, что функция в Google Script выглядит так:
+ * СУПЕРМОЗГ: ОПТИМИЗИРОВАННЫЙ GOOGLE SCRIPT (Скопируйте это в расширения таблицы)
  * 
  * function doPost(e) {
- *   var param = e.parameter;
- *   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Название_Листа");
- *   sheet.appendRow([new Date(), param.email, param.username, param.tg_id, param.type, param.path]);
- *   return ContentService.createTextOutput("ok").setMimeType(ContentService.MimeType.TEXT);
+ *   var contents = JSON.parse(e.postData.contents);
+ *   var sheetLeads = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Leads");
+ *   var sheetSessions = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sessions");
+ *   
+ *   if (contents.type === 'lead' || contents.type === 'order') {
+ *     sheetLeads.appendRow([
+ *       contents.product || '', contents.price || 0, contents.name || '', contents.email || '', contents.phone || '',
+ *       contents.utmSource || 'direct', contents.orderId || '', contents.dateStr || new Date().toLocaleString('ru-RU'),
+ *       contents.paymentStatus || 'pending', contents.agreedToMarketing || 'Нет', contents.tgUsername || 'no_id', contents.productId || ''
+ *     ]);
+ *   } else if (contents.type === 'session_start' || contents.type === 'path_update') {
+ *     sheetSessions.appendRow([
+ *       contents.dateStr || new Date().toLocaleString('ru-RU'), contents.city || '---', contents.country || '---',
+ *       contents.utmSource || 'direct', 'none', 'none', contents.utmSource || 'direct', 'none', 'none'
+ *     ]);
+ *   }
+ *   return ContentService.createTextOutput("Success");
  * }
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_cached_tg_user_v4';
-const BROWSER_ID_KEY = 'olga_browser_fingerprint_v4';
-const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
-
-// Генерация ID устройства, если Telegram молчит
-const getBrowserFingerprint = () => {
-  let id = localStorage.getItem(BROWSER_ID_KEY);
-  if (!id) {
-    id = 'DEV_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    localStorage.setItem(BROWSER_ID_KEY, id);
-  }
-  return id;
-};
+const CACHED_USER_KEY = 'olga_cached_tg_user_v5';
+const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEgb8enYLzE-tQObLX_3KDBicbrFY25E_9QHG9HijdssgviH8BeRzXd_HqQV4rEeQn/exec';
 
 export const getDetailedTgUser = () => {
   try {
@@ -37,7 +37,7 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // 1. Извлекаем из объекта SDK
+    // 1. Прямой захват из SDK
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
@@ -45,21 +45,18 @@ export const getDetailedTgUser = () => {
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // 2. СУПЕР-ЗАХВАТ: Парсим все возможные строки данных (initData, hash, search)
+    // 2. Агрессивный захват из сырых данных (если SDK тупит)
     if (!userId) {
-      const fullSource = decodeURIComponent(tg?.initData || '') + decodeURIComponent(window.location.hash) + decodeURIComponent(window.location.search);
-      
-      // Ищем ID (цифры)
-      const idMatch = fullSource.match(/"id":(\d+)/) || fullSource.match(/id=(\d+)/) || fullSource.match(/id%22%3A(\d+)/);
-      if (idMatch && idMatch[1]) userId = idMatch[1];
-      
-      // Ищем Username
-      const userMatch = fullSource.match(/"username":"([^"]+)"/) || fullSource.match(/username=([^&]+)/) || fullSource.match(/username%22%3A%22([^%"]+)/);
-      if (userMatch && userMatch[1]) username = `@${userMatch[1]}`;
+      const rawData = tg?.initData || new URLSearchParams(window.location.hash.slice(1)).get('tgWebAppData');
+      if (rawData) {
+        const idMatch = rawData.match(/id%22%3A(\d+)/) || rawData.match(/"id":(\d+)/);
+        if (idMatch) userId = idMatch[1];
+        const userMatch = rawData.match(/username%22%3A%22([^%"]+)/) || rawData.match(/"username":"([^"]+)"/);
+        if (userMatch) username = `@${userMatch[1]}`;
+      }
     }
 
-    // 3. Кэширование
-    const fingerprint = getBrowserFingerprint();
+    // 3. Восстановление из кэша
     if (userId) {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
     } else {
@@ -72,19 +69,19 @@ export const getDetailedTgUser = () => {
       }
     }
 
-    // Гарантируем отсутствие "Unknown"
-    const finalId = userId || fingerprint;
+    // Финальная проверка: если ID нет, используем временную метку, чтобы не было Unknown
+    const finalId = userId || `ID_${Date.now().toString(36).toUpperCase()}`;
     const finalUsername = username || finalId;
     const finalDisplayName = fullName || finalUsername;
 
     return {
       primaryId: finalUsername, 
-      tg_id: userId || 'none',
+      tg_id: userId || finalId,
       username: finalUsername,
       displayName: finalDisplayName
     };
   } catch (e) {
-    return { primaryId: 'ERROR_GETTING_ID', tg_id: 'none', username: 'none', displayName: 'User' };
+    return { primaryId: 'ERROR_SDK', tg_id: 'none', username: 'none', displayName: 'User' };
   }
 };
 
@@ -99,100 +96,80 @@ const getWebhookUrl = () => {
   return DEFAULT_WEBHOOK;
 };
 
-// МЕТОД МИРОВОГО СУПЕРМОЗГА: Отправка данных через URL-параметры
+// Отправка JSON-тела, которое на 100% понимает ваш Google Script
 const sendToScript = async (payload: any) => {
   const webhook = getWebhookUrl();
   if (!webhook) return;
   
   try {
-    // Формируем строку параметров (query string)
-    const params = new URLSearchParams();
-    for (const key in payload) {
-      // Заменяем пустые значения на понятные маркеры, чтобы в таблице не было пустоты
-      const val = payload[key];
-      params.append(key, (val === null || val === undefined || val === '') ? '---' : String(val));
-    }
+    // Чистим данные от возможных undefined
+    const cleanPayload = JSON.parse(JSON.stringify(payload, (key, value) => {
+      if (value === undefined || value === null || value === 'Unknown') return '---';
+      return value;
+    }));
 
-    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
-
-    // Используем POST, но данные дублируем в URL для 100% срабатывания в Google
-    await fetch(finalUrl, {
+    await fetch(webhook, {
       method: 'POST',
       mode: 'no-cors',
-      cache: 'no-cache'
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanPayload)
     });
-  } catch (e) {
-    console.error('Analytics error:', e);
-  }
+  } catch (e) {}
 };
 
 let globalSessionId: string | null = null;
 const formatNow = () => new Date().toLocaleString('ru-RU');
 
 export const analyticsService = {
-  logOrder: async (order: Omit<OrderLog, 'id' | 'timestamp' | 'paymentStatus'>, currentSessionId?: string) => {
-    const timestamp = Date.now();
+  logOrder: async (order: any, currentSessionId?: string) => {
     const userInfo = getDetailedTgUser();
-    const newOrder: OrderLog = {
-      ...order,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp,
-      tgUsername: userInfo.primaryId,
-      paymentStatus: 'pending'
-    };
+    const orderId = Math.random().toString(36).substr(2, 9);
 
+    // ПОЛЯ СТРОГО ПО ВАШЕМУ СПИСКУ Leads
     await sendToScript({
-      action: 'log',
       type: 'order',
-      sessionId: currentSessionId || globalSessionId || 'order_sess',
-      orderId: newOrder.id,
-      name: `${newOrder.customerName} (${userInfo.displayName})`,
-      email: userInfo.primaryId,
-      username: userInfo.username,
-      tg_id: userInfo.tg_id,
-      product: newOrder.productTitle,
-      price: newOrder.price,
-      utmSource: newOrder.utmSource,
-      dateStr: formatNow()
-    });
-    
-    return newOrder;
-  },
-
-  updateOrderStatus: async (orderId: string, status: 'paid' | 'failed') => {
-    const userInfo = getDetailedTgUser();
-    await sendToScript({
-      action: 'update_status',
-      type: 'order',
+      product: order.productTitle,
+      price: order.price,
+      name: `${order.customerName} (${userInfo.displayName})`,
+      email: userInfo.primaryId, // Для совместимости с вашей таблицей
+      phone: order.customerPhone || '---',
+      utmSource: order.utmSource || 'direct',
       orderId: orderId,
-      status: status,
-      email: userInfo.primaryId,
+      dateStr: formatNow(),
+      paymentStatus: 'pending',
+      agreedToMarketing: order.agreedToMarketing ? 'Да' : 'Нет',
       tgUsername: userInfo.primaryId,
-      dateStr: formatNow()
+      productId: order.productId || '---'
+    });
+    
+    return { ...order, id: orderId };
+  },
+
+  updateOrderStatus: async (orderId: string, status: string) => {
+    const userInfo = getDetailedTgUser();
+    await sendToScript({
+      action: 'update_status', // Для совместимости с логикой doPost
+      order_id: orderId,
+      payment_status: status === 'paid' ? 'success' : 'failed',
+      tgUsername: userInfo.primaryId
     });
   },
 
-  startSession: async (forcedUsername?: string): Promise<string> => {
+  startSession: async (forcedId?: string): Promise<string> => {
     const userInfo = getDetailedTgUser();
-    const tgId = forcedUsername || userInfo.primaryId;
-    
-    const safeId = String(tgId).replace(/[^a-zA-Z0-9]/g, '') || 'user';
-    const sessionId = `${safeId}_${Math.random().toString(36).substr(2, 4)}`;
+    const tgId = forcedId || userInfo.primaryId;
+    const sessionId = `${tgId.replace(/[^a-z0-9]/gi, '')}_${Date.now().toString(36)}`;
     globalSessionId = sessionId;
     
-    const params = new URLSearchParams(window.location.search);
-    
+    // ПОЛЯ СТРОГО ПО ВАШЕМУ СПИСКУ Sessions
     await sendToScript({
-      action: 'log',
       type: 'session_start',
+      dateStr: formatNow(),
+      city: '---', // Ваш скрипт ждет это во 2-й колонке
+      country: '---', // Ваш скрипт ждет это в 3-й колонке
+      utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
       sessionId: sessionId,
-      name: userInfo.displayName,
-      email: tgId,
-      tgUsername: tgId,
-      tg_id: userInfo.tg_id,
-      username: userInfo.username,
-      utmSource: params.get('utm_source') || 'direct',
-      dateStr: formatNow()
+      tgUsername: tgId
     });
 
     return sessionId;
@@ -200,18 +177,14 @@ export const analyticsService = {
 
   updateSessionPath: async (sessionId: string, path: string) => {
     const userInfo = getDetailedTgUser();
-    const sId = sessionId && sessionId !== 'session' ? sessionId : (globalSessionId || 'path_sess');
-    
     await sendToScript({
-      action: 'log',
       type: 'path_update',
-      sessionId: sId,
-      name: userInfo.displayName,
-      email: userInfo.primaryId,
-      tgUsername: userInfo.primaryId,
-      tg_id: userInfo.tg_id,
+      dateStr: formatNow(),
+      city: '---',
+      country: '---',
       path: path,
-      dateStr: formatNow()
+      sessionId: sessionId || globalSessionId,
+      tgUsername: userInfo.primaryId
     });
   }
 };
