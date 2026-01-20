@@ -1,12 +1,14 @@
 
 /**
- * СУПЕРМОЗГ V12: ГАРАНТИРОВАННЫЙ ЗАХВАТ НИКА
- * Маппинг данных строго под колонки таблицы: Имя, Email
+ * СУПЕРМОЗГ V13: ОКОНЧАТЕЛЬНАЯ ФИКСАЦИЯ НИКА
+ * Маппинг под вашу таблицу (Скриншот): 
+ * Column B (Имя) <- параметр 'city'
+ * Column C (Email) <- параметр 'country'
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v12';
+const CACHED_USER_KEY = 'olga_tg_final_v13';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 export const getDetailedTgUser = () => {
@@ -18,7 +20,7 @@ export const getDetailedTgUser = () => {
     let username: string | null = null;
     let fullName: string | null = null;
 
-    // 1. Попытка через объект user (Mobile)
+    // 1. Попытка через стандартный объект (Mobile)
     const userObj = tg?.initDataUnsafe?.user;
     if (userObj) {
       userId = userObj.id ? String(userObj.id) : null;
@@ -26,30 +28,38 @@ export const getDetailedTgUser = () => {
       fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
     }
 
-    // 2. Глубокий разбор для Desktop/PC
+    // 2. Глубокий разбор initData (Desktop/PC)
     const initData = tg?.initData || "";
-    if (initData && (!username || username.includes('ID_'))) {
-      const params = new URLSearchParams(initData);
-      const userParam = params.get('user');
+    const searchSource = initData || window.location.hash || window.location.search;
+    
+    if (searchSource && !username) {
+      // Пытаемся вытащить JSON юзера из параметров
+      const params = new URLSearchParams(searchSource.replace(/^#/, ''));
+      const userParam = params.get('user') || params.get('tgWebAppStartParam');
+      
       if (userParam) {
         try {
           const parsed = JSON.parse(decodeURIComponent(userParam));
           if (parsed.username) username = `@${parsed.username.replace(/^@/, '')}`;
           if (!userId) userId = parsed.id ? String(parsed.id) : null;
           if (!fullName) fullName = `${parsed.first_name || ''} ${parsed.last_name || ''}`.trim();
-        } catch (e) {}
+        } catch (e) {
+          // Если не JSON, пробуем регуляркой прямо по строке
+          const nickMatch = searchSource.match(/username["%22]*:?["%22]*([^"%&]+)/);
+          if (nickMatch && nickMatch[1]) username = `@${decodeURIComponent(nickMatch[1]).replace(/^@/, '')}`;
+        }
       }
     }
 
-    // 3. Если всё еще нет ника - ищем в хеше URL
+    // 3. Последний шанс: поиск по всей строке URL/Hash
     if (!username) {
-      const hash = window.location.hash;
-      const nickMatch = hash.match(/"username":"([^"]+)"/) || hash.match(/username%22%3A%22([^%]+)%22/);
-      if (nickMatch) username = `@${decodeURIComponent(nickMatch[1]).replace(/^@/, '')}`;
+      const raw = decodeURIComponent(window.location.href);
+      const m = raw.match(/"username":"([^"]+)"/) || raw.match(/username":"([^"]+)"/);
+      if (m) username = `@${m[1].replace(/^@/, '')}`;
     }
 
-    // 4. Кэширование для стабильности
-    if (username) {
+    // 4. Кэш
+    if (username && !username.includes('ID_')) {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username, fullName }));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
@@ -59,7 +69,7 @@ export const getDetailedTgUser = () => {
       }
     }
 
-    const finalNick = username || (userId ? `ID_${userId}` : `GUEST_${Math.random().toString(36).substr(2, 4)}`);
+    const finalNick = username || (userId ? `ID_${userId}` : `GUEST_${Math.random().toString(36).substr(2, 4).toUpperCase()}`);
 
     return {
       primaryId: finalNick, 
@@ -85,28 +95,31 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // ПРИНУДИТЕЛЬНЫЙ МАППИНГ ПОД КОЛОНКИ ТАБЛИЦЫ
-    // Если в name или email пусто/Unknown/---, пишем туда НИКНЕЙМ
+    // ПРИНУДИТЕЛЬНЫЙ МАППИНГ ПОД КОЛОНКИ ТАБЛИЦЫ (B и C)
+    // Параметр 'city' попадает в колонку Имя (B)
+    // Параметр 'country' попадает в колонку Email (C)
     const cleanPayload = {
       ...payload,
-      // Колонка "Имя" (B)
-      name: (payload.name && payload.name !== '---' && !payload.name.toLowerCase().includes('unknown')) 
-            ? payload.name : nick,
-      // Колонка "Email" (C)
-      email: (payload.email && payload.email !== '---' && !payload.email.toLowerCase().includes('unknown'))
-            ? payload.email : nick,
-      // Для подстраховки в другие поля
+      // Если мы в режиме сессии, city/country могут быть переопределены
+      city: payload.city && payload.city !== '---' && !payload.city.includes('ID_') ? payload.city : nick,
+      country: payload.country && payload.country !== '---' && !payload.country.includes('ID_') ? payload.country : nick,
+      // Для заказов (другие листы)
+      name: payload.name || nick,
+      email: payload.email || nick,
       tgUsername: nick,
-      username: nick,
-      city: payload.city || nick,
-      country: payload.country || userInfo.displayName
+      username: nick
     };
 
     const query = new URLSearchParams();
-    Object.keys(cleanPayload).forEach(key => query.append(key, String(cleanPayload[key])));
+    Object.keys(cleanPayload).forEach(key => {
+      let val = String(cleanPayload[key]);
+      if (val === 'undefined' || val === 'null' || val === '---') val = nick;
+      query.append(key, val);
+    });
 
     const url = `${webhook}${webhook.includes('?') ? '&' : '?'}${query.toString()}`;
 
+    // no-cors для Google Apps Script
     await fetch(url, { method: 'POST', mode: 'no-cors', cache: 'no-cache' });
   } catch (e) {}
 };
@@ -119,7 +132,7 @@ export const analyticsService = {
       type: 'order',
       product: order.productTitle,
       price: order.price,
-      name: order.customerName, // sendToScript сам заменит на ник если тут пусто
+      name: order.customerName,
       email: order.customerEmail,
       phone: order.customerPhone || '---',
       utmSource: order.utmSource || 'direct',
@@ -136,8 +149,8 @@ export const analyticsService = {
     await sendToScript({
       type: 'session_start',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: nick, // Пойдет в колонку "Имя" или "Email"
-      country: userInfo.displayName,
+      city: nick, // В колонку "Имя"
+      country: nick, // В колонку "Email"
       utmSource: new URLSearchParams(window.location.search).get('utm_source') || 'direct',
       sessionId: sid
     });
@@ -146,11 +159,12 @@ export const analyticsService = {
 
   updateSessionPath: async (sid: string, path: string) => {
     const userInfo = getDetailedTgUser();
+    const nick = userInfo.username;
     await sendToScript({
       type: 'path_update',
       dateStr: new Date().toLocaleString('ru-RU'),
-      city: path,
-      country: userInfo.username,
+      city: path, // В колонку "Имя" (чтобы видеть где ходит)
+      country: nick, // В колонку "Email" (чтобы видеть КТО ходит)
       path: path,
       sessionId: sid
     });
