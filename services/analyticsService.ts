@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V35: ФИНАЛЬНАЯ СИНХРОНИЗАЦИЯ
- * Гарантирует правильный маппинг вкладок в Sessions и доступов в Permissions.
+ * СУПЕРМОЗГ V36: ПРЕЦИЗИОННАЯ ГАРМОНИЯ
+ * Решает конфликт SID в таблице Sessions и гарантирует чистоту вкладок.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -70,14 +70,15 @@ const sendToScript = async (payload: any) => {
     })();
 
     const freshUser = getDetailedTgUser();
-    
-    // ГАРАНТИЯ: Если путь не задан или это старт — всегда ставим 'home'
-    // Если передан path, используем его. Это исключает запись SID в поле вкладки.
-    const currentPath = payload.path || payload.city || (payload.type === 'session_start' ? 'home' : '');
+    const currentPath = payload.path || payload.city || (payload.type === 'session_start' ? 'home' : 'home');
+
+    // ОЧИЩАЕМ payload от sessionId перед созданием data, 
+    // чтобы Google Script не путал колонки
+    const { sessionId, ...restPayload } = payload;
 
     const data: any = {
-      ...payload,
-      // Дублируем вкладку во все поля, чтобы таблица точно её увидела
+      ...restPayload,
+      sessionId: sessionId || '', // Передаем отдельно
       city: currentPath,
       path: currentPath,
       page: currentPath,
@@ -119,13 +120,11 @@ export const analyticsService = {
   },
   startSession: async () => {
     const sid = `SID_${Date.now()}`;
-    // Явно указываем city: 'home', чтобы в таблице не было SID вместо вкладки
-    await sendToScript({ type: 'session_start', sessionId: sid, city: 'home', path: 'home' });
+    await sendToScript({ type: 'session_start', sessionId: sid, path: 'home' });
     return sid;
   },
   updateSessionPath: async (sid: string, path: string) => {
-    // Явно передаем путь и в city, и в path
-    await sendToScript({ type: 'path_update', sessionId: sid, path: path, city: path });
+    await sendToScript({ type: 'path_update', sessionId: sid, path: path });
   },
   updateOrderStatus: async (id: string, status: string) => {
     await sendToScript({ type: 'status_update', orderId: id, paymentStatus: status });

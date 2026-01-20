@@ -54,18 +54,17 @@ const App: React.FC = () => {
     const userInfo = getDetailedTgUser();
     const variants = new Set<string>();
     
-    // ДОБАВЛЯЕМ ВСЕ ВОЗМОЖНЫЕ ВАРИАНТЫ НИКА ДЛЯ ПРОВЕРКИ
+    // ГАРАНТИРУЕМ ПРОВЕРКУ НИКА ВО ВСЕХ ВИДАХ
     if (forcedId) {
       variants.add(String(forcedId).trim());
-      variants.add(String(forcedId).trim().toLowerCase());
     }
 
     if (userInfo.username && userInfo.username !== '@guest') {
       const pureNick = userInfo.username.replace(/^@/, '');
       variants.add(`@${pureNick}`); // @Olga_lav
+      variants.add(pureNick);        // Olga_lav
       variants.add(`@${pureNick.toLowerCase()}`); // @olga_lav
-      variants.add(pureNick); // Olga_lav
-      variants.add(pureNick.toLowerCase()); // olga_lav
+      variants.add(pureNick.toLowerCase());        // olga_lav
     }
     
     if (userInfo.tg_id && userInfo.tg_id !== '000000') {
@@ -73,11 +72,12 @@ const App: React.FC = () => {
     }
 
     const targetIds = Array.from(variants);
-    console.log("🔐 [AccessCheck] Проверка вариантов ника/ID:", targetIds);
+    console.log("🔐 [AccessCheck] Проверка вариантов ника:", targetIds);
 
     try {
       await Promise.all(targetIds.map(async (id) => {
         try {
+          // Добавляем параметр cache bust и кодируем ID
           const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
           const res = await fetch(url, { redirect: 'follow' });
           const data = await res.json();
@@ -90,7 +90,7 @@ const App: React.FC = () => {
             }
           }
         } catch (e) {
-          console.error("❌ [Access Fetch Error]:", e);
+          console.error("❌ [Access Error]:", e);
         }
       }));
     } finally {
@@ -138,10 +138,8 @@ const App: React.FC = () => {
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
         
-        // ВАЖНО: Только после того как загрузили каталог, проверяем доступы
-        setTimeout(() => {
-           fetchUserAccess();
-        }, 100);
+        // ВАЖНО: Доступ проверяем СРАЗУ после загрузки товаров
+        fetchUserAccess();
       }
     } catch (e) {}
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
@@ -154,7 +152,6 @@ const App: React.FC = () => {
       activeSessionId.current = sid;
     });
 
-    // Порядок критичен: сначала каталог, потом доступы (вызовется внутри syncWithCloud)
     syncWithCloud();
   }, []);
 
@@ -172,14 +169,9 @@ const App: React.FC = () => {
       const hasAccess = userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
         if (cleanAccess === 'all') return true;
-        
-        // Совпадение по ID товара (1shop == 1shop)
         if (cleanAccess === pid) return true;
-        // Частичное совпадение (если в таблице написано "1shop", а в каталоге просто "1")
-        if (pid.length > 0 && cleanAccess.includes(pid)) return true;
-        if (cleanAccess.length > 0 && pid.includes(cleanAccess)) return true;
-        
-        return false;
+        // Если в таблице Permissions написано "1shop", а в Catalog "1shop" — это 100% совпадение
+        return cleanAccess.includes(pid) && pid.length > 2;
       });
 
       return hasAccess;
@@ -362,7 +354,7 @@ const App: React.FC = () => {
               <div className="space-y-5">
                 <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
                 <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-                  Здесь будут ваши купленные материалы. Доступ открывается автоматически. Если покупка не появилась, нажмите кнопку Обновить выше.
+                  Здесь будут ваши материалы. Если покупка не появилась автоматически — нажмите «Обновить доступы» выше.
                 </p>
               </div>
             </div>
@@ -383,6 +375,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* ... Остальные модалки и вью ... */}
       {activeDetailProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
