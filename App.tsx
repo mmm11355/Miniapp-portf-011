@@ -36,7 +36,7 @@ const App: React.FC = () => {
     return {
       botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58',
       chatId: '-1002095569247',
-      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbwmGU6u-mzWG23jQxFpLpBcTo33oxFOVILHB11H1nUcaYYG8eJfIBo2OJfWIHGhSnEg/exec'
+      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec'
     };
   });
 
@@ -49,7 +49,7 @@ const App: React.FC = () => {
   
   setIsRefreshingAccess(true);
   
-  // 1. Готовим варианты (ID, @Ник, ник без @)
+  // Собираем варианты для поиска в таблице
   const variants = new Set<string>();
   if (userId) variants.add(userId.toString().toLowerCase());
   if (username) {
@@ -65,24 +65,21 @@ const App: React.FC = () => {
     const data = await res.json();
 
     if (data.status === 'success' && Array.isArray(data.access)) {
-      // 2. Чистим полученные ID продуктов (например ["1shop"])
       const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
       
-      // 3. ЗАПИСЫВАЕМ СРАЗУ В ОБЕ ВОЗМОЖНЫЕ ПЕРЕМЕННЫЕ (для надежности)
-      if (typeof setUserPurchasedIds === 'function') {
-        setUserPurchasedIds(cleanAccess);
-      }
-      if (typeof setUserAccess === 'function') {
-        setUserAccess(cleanAccess);
-      }
+      // Записываем доступы (пробуем оба варианта стейта, если они у тебя есть)
+      if (typeof setUserPurchasedIds === 'function') setUserPurchasedIds(cleanAccess);
+      // @ts-ignore
+      if (typeof setUserAccess === 'function') setUserAccess(cleanAccess);
       
-      console.log("ДОСТУПЫ ОБНОВЛЕНЫ:", cleanAccess);
+      console.log("Доступы подтверждены:", cleanAccess);
     }
   } catch (e) {
-    console.error("ОШИБКА ДОСТУПА:", e);
+    console.error("Ошибка при проверке доступов:", e);
   } finally {
     setIsRefreshingAccess(false);
   }
+
 
   }, [telegramConfig.googleSheetWebhook]);
 
