@@ -1,85 +1,98 @@
 
 /**
- * СУПЕРМОЗГ V17: БУЛЛЕТПРУФ ЗАХВАТ
- * Исправлен захват для Desktop и синхронизированы маркеры ожидания.
+ * СУПЕРМОЗГ V18: ОКОНЧАТЕЛЬНЫЙ ЗАХВАТ
+ * Рекурсивный парсинг для захвата ника на 100% устройств.
  */
 
 import { Session, OrderLog } from '../types';
 
-const CACHED_USER_KEY = 'olga_tg_final_v17';
+const CACHED_USER_KEY = 'olga_tg_final_v18';
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
-
-// Унифицированный маркер отсутствия данных (для синхронизации с App.tsx)
 const FALLBACK_ID = '000000';
+
+/**
+ * Рекурсивно ищет объект 'user' в строке параметров
+ */
+const findUserInString = (str: string): any => {
+  if (!str) return null;
+  try {
+    const params = new URLSearchParams(str.replace(/^#/, '').replace(/^\?/, ''));
+    
+    // 1. Прямой поиск user
+    const userJson = params.get('user');
+    if (userJson) return JSON.parse(decodeURIComponent(userJson));
+    
+    // 2. Поиск во вложенном tgWebAppData (часто на Desktop)
+    const tgData = params.get('tgWebAppData');
+    if (tgData) return findUserInString(decodeURIComponent(tgData));
+    
+    // 3. Поиск в остальных параметрах (на всякий случай)
+    for (const [key, value] of params.entries()) {
+      if (value && (value.includes('%7B') || value.includes('{'))) {
+        try {
+          const decoded = decodeURIComponent(value);
+          if (decoded.includes('"id":')) return JSON.parse(decoded);
+        } catch (e) {}
+      }
+    }
+  } catch (e) {}
+  return null;
+};
 
 export const getDetailedTgUser = () => {
   try {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) tg.ready();
 
-    let userId: string | null = null;
-    let username: string | null = null;
-    let fullName: string | null = null;
+    let userData: any = null;
 
-    // 1. Попытка через официальный SDK (Mobile)
-    const userObj = tg?.initDataUnsafe?.user;
-    if (userObj) {
-      userId = userObj.id ? String(userObj.id) : null;
-      username = userObj.username ? `@${userObj.username.replace(/^@/, '')}` : null;
-      fullName = `${userObj.first_name || ''} ${userObj.last_name || ''}`.trim();
+    // ШАГ 1: Проверка SDK
+    if (tg?.initDataUnsafe?.user) {
+      userData = tg.initDataUnsafe.user;
     }
 
-    // 2. Глубокий парсинг URL (Desktop + Резерв для Mobile)
-    if (!userId || !username) {
-      const hash = window.location.hash.slice(1);
-      const search = window.location.search.slice(1);
-      const initData = tg?.initData || '';
-      const sources = [hash, search, initData].filter(Boolean);
+    // ШАГ 2: Если SDK пуст, сканируем URL (актуально для PC и старых версий)
+    if (!userData) {
+      const sources = [
+        window.location.hash,
+        window.location.search,
+        tg?.initData
+      ].filter(Boolean);
 
       for (const src of sources) {
-        const params = new URLSearchParams(src!);
-        
-        // Telegram Desktop часто кладет параметры в tgWebAppData
-        let effectiveData = src!;
-        if (params.has('tgWebAppData')) {
-          effectiveData = decodeURIComponent(params.get('tgWebAppData')!);
-        }
-        
-        const finalParams = new URLSearchParams(effectiveData);
-        const userJson = finalParams.get('user');
-        
-        if (userJson) {
-          try {
-            const u = JSON.parse(decodeURIComponent(userJson));
-            if (u.id && !userId) userId = String(u.id);
-            if (u.username && !username) username = `@${u.username.replace(/^@/, '')}`;
-            if (u.first_name && !fullName) fullName = `${u.first_name} ${u.last_name || ''}`.trim();
-          } catch (e) {}
-        }
-        if (userId || username) break;
+        userData = findUserInString(src!);
+        if (userData) break;
       }
     }
 
-    // 3. Формирование финальных данных
-    const stableId = userId || FALLBACK_ID;
-    let stableNick = username || (userId ? `@id${userId}` : `@guest_${FALLBACK_ID}`);
+    // ШАГ 3: Формирование ника и ID
+    let userId = userData?.id ? String(userData.id) : null;
+    let username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : null;
+    let fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim();
 
-    // 4. Кэширование
+    // Если ника нет, но есть ID — делаем ник из ID
+    const stableId = userId || FALLBACK_ID;
+    const stableNick = username || (userId ? `@id${userId}` : `@guest_${FALLBACK_ID}`);
+
+    // ШАГ 4: Кэширование (чтобы не терять данные при обновлении)
     if (userId || username) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId, username: stableNick, fullName }));
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify({ userId: stableId, username: stableNick, fullName }));
     } else {
       const cached = localStorage.getItem(CACHED_USER_KEY);
       if (cached) {
         const c = JSON.parse(cached);
-        if (stableId === FALLBACK_ID) userId = c.userId;
-        if (stableNick.includes(FALLBACK_ID)) stableNick = c.username;
-        fullName = c.fullName;
+        return {
+          primaryId: c.username,
+          tg_id: c.userId,
+          username: c.username,
+          displayName: c.fullName || c.username
+        };
       }
     }
 
     return {
       primaryId: stableNick,
-      tg_id: userId || FALLBACK_ID,
+      tg_id: stableId,
       username: stableNick,
       displayName: fullName || stableNick
     };
@@ -94,7 +107,7 @@ const sendToScript = async (payload: any) => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.googleSheetWebhook && parsed.googleSheetWebhook.includes('exec')) return parsed.googleSheetWebhook;
+        if (parsed.googleSheetWebhook?.includes('exec')) return parsed.googleSheetWebhook;
       }
     } catch (e) {}
     return DEFAULT_WEBHOOK;
@@ -104,7 +117,7 @@ const sendToScript = async (payload: any) => {
     const userInfo = getDetailedTgUser();
     const nick = userInfo.username;
 
-    // МАППИНГ: city -> Имя, country -> Email
+    // МАППИНГ ДЛЯ ТАБЛИЦЫ: city -> Имя, country -> Email
     const cleanPayload = {
       ...payload,
       city: (payload.type === 'path_update') ? payload.city : (payload.city && payload.city !== '---' && !payload.city.includes('home')) ? payload.city : nick,

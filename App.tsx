@@ -109,18 +109,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // СУПЕРМОЗГ: Ждем Telegram до 2 секунд. 
-      // Важно: условие userInfo.tg_id === '000000' соответствует FALLBACK_ID в сервисе.
+      // БУЛЛЕТПРУФ ОЖИДАНИЕ: Пытаемся захватить данные 8 раз (около 4 секунд)
       let userInfo = getDetailedTgUser();
       let attempts = 0;
-      while (userInfo.tg_id === '000000' && attempts < 5) {
-        await new Promise(r => setTimeout(r, 400));
+      while (userInfo.tg_id === '000000' && attempts < 8) {
+        await new Promise(r => setTimeout(r, 500));
         userInfo = getDetailedTgUser();
         attempts++;
       }
 
       setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
+      
+      // Запускаем сессию только после того, как попытки захвата завершены
       const sid = await analyticsService.startSession(userInfo.primaryId);
       activeSessionId.current = sid;
       fetchUserAccess(userInfo.primaryId);
