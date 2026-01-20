@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V38: ВОЗВРАТ НИКОВ И СТАБИЛЬНОСТИ
- * Исправляет отображение ников в Sessions и восстанавливает связь со скриптом.
+ * СУПЕРМОЗГ V40: ОКОНЧАТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ
+ * Исправляет сдвиг колонок в таблице и возвращает ники/ID.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -16,27 +16,24 @@ export const getDetailedTgUser = () => {
       userData = tg.initDataUnsafe.user;
     }
 
-    // Если нет данных от TG, ищем в кэше, но не даем кэшу перекрыть свежие данные
     const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
     
     let username = '@guest';
     if (userData?.username) {
       username = `@${userData.username.replace(/^@/, '')}`;
+    } else if (userData?.id) {
+      // Если ника нет — используем ID, чтобы в таблице не было пусто
+      username = `@id${userData.id}`;
     } else {
       const cached = localStorage.getItem('olga_cache_nick');
-      if (cached && cached !== '@guest' && cached !== 'undefined') {
-        username = cached;
-      } else if (userData?.id) {
-        username = `@id${userData.id}`;
-      }
+      if (cached && cached !== '@guest') username = cached;
     }
 
     const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
-    // Обновляем кэш только если данные валидны
     if (userData?.id) {
-      localStorage.setItem('olga_cache_id', String(userData.id));
-      if (userData.username) localStorage.setItem('olga_cache_nick', `@${userData.username}`);
+      localStorage.setItem('olga_cache_id', userId);
+      localStorage.setItem('olga_cache_nick', username);
       localStorage.setItem('olga_cache_name', fullName);
     }
 
@@ -60,18 +57,18 @@ const sendToScript = async (payload: any) => {
     })();
 
     const freshUser = getDetailedTgUser();
-    const currentPath = payload.path || payload.city || 'home';
+    const currentTab = payload.path || payload.city || 'home';
 
-    // ВАЖНО: Используем ТЕ ЖЕ ключи, что были в самой первой рабочей версии
+    // СТРОГИЙ ПОРЯДОК ПОЛЕЙ ДЛЯ СКРИПТА (не менять!)
+    // 1. date, 2. path, 3. sessionId, 4. tgUsername
     const data: any = {
       date: new Date().toLocaleString('ru-RU'),
-      path: currentPath,
-      city: currentPath,
-      vkladka: currentPath,
-      type: payload.type,
+      path: currentTab,
+      sessionId: payload.sessionId || 'SID_NONE',
       tgUsername: freshUser.username,
-      sessionId: payload.sessionId || '', 
       userId: freshUser.tg_id,
+      type: payload.type || 'log',
+      vkladka: currentTab, // Дублируем для разных версий скрипта
       name: freshUser.displayName
     };
 
@@ -86,22 +83,18 @@ const sendToScript = async (payload: any) => {
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(data)
-    }).catch(e => console.log('Silent log failed'));
+    }).catch(() => {});
 
-  } catch (err) {
-    console.error('Analytics Error:', err);
-  }
+  } catch (err) {}
 };
 
 export const analyticsService = {
   logOrder: async (order: any) => {
     const orderId = `ORD${Date.now()}`;
-    const userInfo = getDetailedTgUser();
     await sendToScript({
       type: 'order',
       product: order.productTitle,
       price: order.price,
-      name: order.customerName,
       email: order.customerEmail,
       sessionId: orderId
     });

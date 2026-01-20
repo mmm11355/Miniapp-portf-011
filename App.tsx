@@ -54,7 +54,6 @@ const App: React.FC = () => {
     const userInfo = getDetailedTgUser();
     const variants = new Set<string>();
     
-    // ПРОВЕРЯЕМ ВСЕ ВАРИАНТЫ НИКА (с @, без @, любой регистр)
     if (forcedId) {
       variants.add(String(forcedId).trim().toLowerCase());
     }
@@ -70,7 +69,7 @@ const App: React.FC = () => {
     }
 
     const targetIds = Array.from(variants);
-    console.log("🔐 [AccessCheck] Ищем доступы для:", targetIds);
+    console.log("🔐 [AccessCheck] Проверка:", targetIds);
 
     try {
       await Promise.all(targetIds.map(async (id) => {
@@ -154,10 +153,10 @@ const App: React.FC = () => {
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
       const pid = String(p.id).trim().toLowerCase();
-      // ЕСЛИ В ТАБЛИЦЕ Permissions ЕСТЬ id ИЛИ "all"
       return userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
-        return cleanAccess === 'all' || cleanAccess === pid;
+        // РАЗРЕШАЕМ ВСЁ: "all", полное совпадение или если ID из таблицы содержится в ID товара
+        return cleanAccess === 'all' || cleanAccess === pid || (cleanAccess.includes(pid) && pid.length > 0) || (pid.includes(cleanAccess) && cleanAccess.length > 0);
       });
     });
   }, [products, userPurchasedIds]);
@@ -484,7 +483,10 @@ const App: React.FC = () => {
             <button onClick={() => password === ADMIN_PASSWORD && setIsAdminAuthenticated(true)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Войти</button>
           </div>
         </div>
-      ))}
+      )}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none opacity-20">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{userIdentifier}</span>
+      </div>
     </Layout>
   );
 };
