@@ -109,23 +109,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // ПОВЫШЕННОЕ ОЖИДАНИЕ (10 попыток по 500мс = 5 секунд)
-      let userInfo = getDetailedTgUser();
+      // ОПТИМАЛЬНОЕ ОЖИДАНИЕ (6 попыток по 500мс = 3 секунды)
       let attempts = 0;
-      while (userInfo.tg_id === '000000' && attempts < 10) {
+      let userInfo = getDetailedTgUser();
+      while (userInfo.tg_id === '000000' && attempts < 6) {
         await new Promise(r => setTimeout(r, 500));
         userInfo = getDetailedTgUser();
         attempts++;
       }
 
-      // Обновляем идентификатор перед стартом
-      const finalInfo = getDetailedTgUser();
-      setUserIdentifier(finalInfo.primaryId);
+      setUserIdentifier(userInfo.primaryId);
       syncWithCloud();
       
-      const sid = await analyticsService.startSession(finalInfo.primaryId);
+      const sid = await analyticsService.startSession(userInfo.primaryId);
       activeSessionId.current = sid;
-      fetchUserAccess(finalInfo.primaryId);
+      fetchUserAccess(userInfo.primaryId);
     };
     init();
   }, []);
@@ -334,7 +332,7 @@ const App: React.FC = () => {
           <div className="flex-grow overflow-y-auto p-6 space-y-5 no-scrollbar pb-32">
              <h2 className="text-[16px] font-black leading-tight text-slate-900 tracking-tight uppercase">{activeDetailProduct.title}</h2>
              <MediaRenderer url={activeDetailProduct.imageUrl} type={activeDetailProduct.mediaType} isDetail={true} />
-             <div className="text-slate-600 text-[15px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
+             <div className="text-slate-600 text-[13px] leading-tight font-medium">{renderRichText(activeDetailProduct.detailFullDescription || activeDetailProduct.description)}</div>
           </div>
           <div className="absolute bottom-6 left-0 right-0 z-[4600] px-6 flex justify-center">
             <button 
