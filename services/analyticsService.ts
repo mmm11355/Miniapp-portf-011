@@ -1,8 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V27: СПАСАТЕЛЬНАЯ ВЕРСИЯ
- * Использует navigator.sendBeacon - самый надежный способ отправки аналитики.
- * Гарантирует доставку даже при закрытии приложения.
+ * СУПЕРМОЗГ V28: ПОЛНАЯ СИНХРОНИЗАЦИЯ СО СКРИПТОМ
+ * Отправляет POST запрос с JSON, который ожидает ваш Google Script.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -13,13 +12,10 @@ export const getDetailedTgUser = () => {
     if (tg) tg.ready();
 
     let userData: any = null;
-    
-    // 1. Из SDK
     if (tg?.initDataUnsafe?.user) {
       userData = tg.initDataUnsafe.user;
     }
 
-    // 2. Из URL (если Desktop)
     if (!userData) {
       const urlPart = window.location.hash || window.location.search;
       const match = urlPart.match(/user=({.*?})/);
@@ -32,7 +28,6 @@ export const getDetailedTgUser = () => {
     const username = userData?.username ? `@${userData.username.replace(/^@/, '')}` : (userData?.id ? `@id${userData.id}` : (localStorage.getItem('olga_cache_nick') || '@guest'));
     const fullName = userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : (localStorage.getItem('olga_cache_name') || 'User');
 
-    // Кэшируем
     if (userData?.id) {
       localStorage.setItem('olga_cache_id', userId);
       localStorage.setItem('olga_cache_nick', username);
@@ -40,118 +35,107 @@ export const getDetailedTgUser = () => {
     }
 
     return { 
-      primaryId: username, 
       tg_id: userId, 
       username: username, 
       displayName: fullName 
     };
   } catch (e) {
-    return { primaryId: '@guest', tg_id: '000000', username: '@guest', displayName: 'User' };
+    return { tg_id: '000000', username: '@guest', displayName: 'User' };
   }
 };
 
-const sendToScript = (payload: any) => {
+const sendToScript = async (payload: any) => {
   try {
     const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.googleSheetWebhook?.includes('exec')) return parsed.googleSheetWebhook;
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.googleSheetWebhook?.includes('exec')) return parsed.googleSheetWebhook;
+        } catch (e) {}
       }
       return DEFAULT_WEBHOOK;
     })();
 
     const userInfo = getDetailedTgUser();
-    const targetSheet = payload.sheet || 'Sessions';
-    const currentPath = payload.city || payload.name || 'home';
-
-    // Формируем параметры (ОБЯЗАТЕЛЬНО TitleCase + lowercase для гарантии)
-    const params = new URLSearchParams();
-    params.append('action', 'log');
-    params.append('sheet', targetSheet);
     
-    // Колонки B и C (самые важные)
-    params.append('name', currentPath);
-    params.append('Name', currentPath);
-    params.append('Имя', currentPath);
-    
-    params.append('email', userInfo.username);
-    params.append('Email', userInfo.username);
-    params.append('Почта', userInfo.username);
-    
-    // Колонка D (ID)
-    params.append('id', userInfo.tg_id);
-    params.append('ID', userInfo.tg_id);
-    params.append('tg_id', userInfo.tg_id);
-    
-    // Остальное
-    params.append('type', payload.type || 'nav');
-    params.append('city', currentPath);
-    params.append('sessionId', payload.sessionId || `SID_${Date.now()}`);
-    params.append('dateStr', new Date().toLocaleString('ru-RU'));
-    params.append('_t', Date.now().toString());
+    // Формируем объект строго под ваш doPost в Google Script
+    const data: any = {
+      ...payload,
+      tgUsername: userInfo.username,
+      dateStr: new Date().toLocaleString('ru-RU'),
+      // Чтобы ID попал в колонку D листа Sessions, передаем его как utmSource
+      utmSource: userInfo.username || 'direct'
+    };
 
-    if (payload.orderId) {
-      params.append('orderId', payload.orderId);
-      params.append('product', payload.product || '');
-      params.append('price', String(payload.price || '0'));
-    }
+    // Отправка через POST (как требует ваш скрипт для логирования)
+    // Используем fetch с mode: 'no-cors', так как Google Script не возвращает CORS заголовки на POST
+    fetch(webhook, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'text/plain', // Важно для Google Script doPost
+      },
+      body: JSON.stringify(data)
+    }).catch(e => console.error('Silent post error:', e));
 
-    const finalUrl = `${webhook}${webhook.includes('?') ? '&' : '?'}${params.toString()}`;
-
-    // МЕТОД 1: Beacon API (рекомендуется для аналитики)
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(finalUrl);
-    }
-
-    // МЕТОД 2: Image Ping (пробивает всё)
-    const img = new Image();
-    img.src = finalUrl;
-
-    // МЕТОД 3: Fetch (для надежности на старых iOS)
-    fetch(finalUrl, { mode: 'no-cors', keepalive: true }).catch(() => {});
-
-    console.log(`✅ [FIRE] -> ${targetSheet} | ${currentPath} | ${userInfo.username}`);
+    console.log(`🚀 [POST SENT] -> ${data.type} | User: ${userInfo.username}`);
   } catch (err) {
-    console.error('Log error:', err);
+    console.error('Critical send error:', err);
   }
 };
 
 export const analyticsService = {
   logOrder: async (order: any) => {
     const orderId = `ORD${Date.now()}`;
-    sendToScript({
-      sheet: 'Orders',
+    const userInfo = getDetailedTgUser();
+    
+    // Поля строго под sheetLeads.appendRow в вашем скрипте
+    await sendToScript({
       type: 'order',
       product: order.productTitle,
       price: order.price,
       name: order.customerName,
       email: order.customerEmail,
-      orderId
+      phone: order.customerPhone || '---',
+      orderId: orderId,
+      paymentStatus: 'pending',
+      agreedToMarketing: order.agreedToMarketing ? 'Да' : 'Нет',
+      tgUsername: userInfo.username,
+      productId: order.productId || 'none'
     });
+    
     return { ...order, id: orderId };
   },
+  
   startSession: async (forcedId?: string) => {
     const sid = `SID_${Date.now()}`;
-    sendToScript({
-      sheet: 'Sessions',
-      type: 'start',
+    // Поля строго под sheetSessions.appendRow в вашем скрипте
+    // Тип 'session_start' обязателен для вашего doPost
+    await sendToScript({
+      type: 'session_start',
       city: 'home',
+      country: 'RU',
       sessionId: sid
     });
     return sid;
   },
+  
   updateSessionPath: async (sid: string, path: string) => {
-    sendToScript({
-      sheet: 'Sessions',
-      type: 'path',
-      city: path, 
+    // Поля строго под sheetSessions.appendRow в вашем скрипте
+    // Тип 'path_update' обязателен для вашего doPost
+    await sendToScript({
+      type: 'path_update',
+      city: path,
+      country: 'RU',
       sessionId: sid
     });
   },
+
   updateOrderStatus: async (id: string, status: string) => {
-    sendToScript({
-      sheet: 'Orders',
+    // Этот метод в вашем скрипте обрабатывается через параметры order_id в doPost (A)
+    // Но мы можем отправить и через JSON для общности
+    await sendToScript({
       type: 'status_update',
       orderId: id,
       paymentStatus: status

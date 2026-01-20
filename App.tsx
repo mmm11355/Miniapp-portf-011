@@ -110,15 +110,18 @@ const App: React.FC = () => {
   // ГАРАНТИРОВАННЫЙ ЗАПУСК АНАЛИТИКИ
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
-    setUserIdentifier(userInfo.primaryId);
+    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
+    setUserIdentifier(userInfo.tg_id);
     
     // ПРЯМАЯ ОТПРАВКА СТАРТА
-    analyticsService.startSession(userInfo.primaryId).then(sid => {
+    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
+    analyticsService.startSession(userInfo.tg_id).then(sid => {
       activeSessionId.current = sid;
     });
 
     syncWithCloud();
-    fetchUserAccess(userInfo.primaryId);
+    // Fix: replaced userInfo.primaryId with userInfo.tg_id because primaryId is not defined on userInfo.
+    fetchUserAccess(userInfo.tg_id);
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
