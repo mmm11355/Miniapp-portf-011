@@ -52,7 +52,7 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       for (const id of targetIds) {
-        if (id === 'guest' || id === 'none') continue;
+        if (!id || id === 'guest' || id === 'none' || id.startsWith('DEV_')) continue;
         const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id.trim())}&_t=${Date.now()}`, { redirect: 'follow' });
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.access)) {
@@ -109,15 +109,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Супермозг: 3 попытки получения данных пользователя с микрозадержками
+      // Супермозг: Ждем до 1.5 секунд для гарантированного получения данных пользователя
       let userInfo = getDetailedTgUser();
-      if (userInfo.primaryId === 'guest') {
-        await new Promise(r => setTimeout(r, 400));
+      let attempts = 0;
+      
+      while ((!userInfo.tg_id || userInfo.tg_id === 'none') && attempts < 5) {
+        await new Promise(r => setTimeout(r, 300));
         userInfo = getDetailedTgUser();
-      }
-      if (userInfo.primaryId === 'guest') {
-        await new Promise(r => setTimeout(r, 600));
-        userInfo = getDetailedTgUser();
+        attempts++;
       }
 
       setUserIdentifier(userInfo.primaryId);
@@ -161,7 +160,6 @@ const App: React.FC = () => {
       if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
       if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
 
-      // Автоматическое превращение ссылок в кликабельные элементы
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const subParts = part.split(urlRegex);
       return (
@@ -193,7 +191,6 @@ const App: React.FC = () => {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
           </div>
           
-          {/* Улучшенный блок достижений: Сохранен стильный дизайн */}
           <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
              <div className="flex items-center gap-4 group">
                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
@@ -216,7 +213,7 @@ const App: React.FC = () => {
                <span className="text-[13px] font-bold text-slate-700 leading-snug">60+ реализованных проектов</span>
              </div>
              
-             <div className="border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+             <div className="pt-4 border-t border-slate-50 mt-2 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90">
                     <Globe size={20} className="text-indigo-400" />
@@ -326,7 +323,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно Лонгрида */}
       {activeDetailProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4500] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100 shadow-2xl">
           <div className="p-4 flex items-center justify-between border-b bg-white/95 backdrop-blur-md sticky top-0 z-[4001]">
@@ -351,7 +347,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Секретный контент (раздел "МОИ") */}
       {activeSecretProduct && (
         <div className="fixed inset-x-0 top-0 bottom-20 z-[4000] bg-white flex flex-col page-transition overflow-hidden mx-auto max-w-md border-x border-slate-100">
           <div className="p-4 flex items-center justify-between border-b bg-white">
@@ -369,7 +364,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Оформление заказа */}
       {checkoutProduct && (
         <div className="fixed inset-0 z-[7000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">
