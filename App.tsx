@@ -61,20 +61,28 @@ const App: React.FC = () => {
       variants.add(String(userInfo.tg_id).trim());
     }
     const targetIds = Array.from(variants);
+    
+    // 1. Склеиваем все варианты (ID и Ники) в одну строку через запятую
+    const idsParam = targetIds.join(',');
+    
     try {
-      await Promise.all(targetIds.map(async (id) => {
-        try {
-          const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
-          const res = await fetch(url, { redirect: 'follow' });
-          const data = await res.json();
-          if (data.status === 'success' && Array.isArray(data.access)) {
-            const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-            if (newAccess.length > 0) {
-              setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            }
-          }
-        } catch (e) { }
-      }));
+      // 2. Делаем ОДИН запрос сразу по всем идентификаторам
+      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
+      
+      const res = await fetch(url, { redirect: 'follow' });
+      const data = await res.json();
+
+      if (data.status === 'success' && Array.isArray(data.access)) {
+        // 3. Получаем список ID купленных продуктов (например ["1shop"])
+        const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
+        
+        if (newAccess.length > 0) {
+          // Обновляем состояние доступов
+          setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
+        }
+      }
+    } catch (e) {
+      console.error("Ошибка при получении доступа:", e);
     } finally {
       setIsRefreshingAccess(false);
     }
