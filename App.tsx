@@ -50,25 +50,26 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     
     const userInfo = getDetailedTgUser();
-    // Собираем все варианты ID для проверки
+    
+    // Собираем варианты для проверки
     const rawIds = [
-      forcedId, 
-      userInfo.tg_id, 
-      userInfo.username, 
-      userInfo.username?.replace(/^@/, ''), // Ник без собачки
-      `@${userInfo.username?.replace(/^@/, '')}`, // Ник точно с собачкой
+      forcedId,
+      userInfo.username, // @Olga_lav
+      userInfo.tg_id,    // 1843449768
+      userInfo.username?.replace(/^@/, ''), // Olga_lav
+      `@${userInfo.username?.replace(/^@/, '')}`, // @Olga_lav (гарантировано)
       userIdentifier
     ];
     
-    // Очищаем список от пустых и дубликатов
     const targetIds = Array.from(new Set(
       rawIds
         .filter(Boolean)
         .map(id => String(id).trim())
-        .filter(id => id !== 'guest' && id !== 'none' && id !== '000000')
+        .filter(id => id !== 'guest' && id !== 'none' && id !== '000000' && id !== 'undefined')
     ));
 
-    for (const id of targetIds) {
+    // Параллельная проверка всех вариантов для скорости
+    await Promise.all(targetIds.map(async (id) => {
       try {
         const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&sheet=Permissions&userId=${encodeURIComponent(id)}&_t=${Date.now()}`;
         const res = await fetch(url, { redirect: 'follow' });
@@ -78,14 +79,11 @@ const App: React.FC = () => {
           const newAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
           if (newAccess.length > 0) {
             setUserPurchasedIds(prev => Array.from(new Set([...prev, ...newAccess])));
-            console.log(`✅ Доступ найден для ID: ${id}`, newAccess);
+            console.log(`✅ Доступ подтвержден для: ${id}`);
           }
         }
-      } catch (e) {
-        console.error(`❌ Ошибка проверки ID ${id}:`, e);
-        // Не прерываем цикл, идем к следующему ID
-      }
-    }
+      } catch (e) {}
+    }));
   }, [userIdentifier, telegramConfig.googleSheetWebhook]);
 
   const syncWithCloud = useCallback(async () => {
@@ -134,14 +132,16 @@ const App: React.FC = () => {
 
   useLayoutEffect(() => {
     const userInfo = getDetailedTgUser();
-    setUserIdentifier(userInfo.tg_id);
     
-    analyticsService.startSession(userInfo.tg_id).then(sid => {
+    // ВАЖНО: Устанавливаем НИК как основной идентификатор
+    setUserIdentifier(userInfo.username);
+    
+    analyticsService.startSession().then(sid => {
       activeSessionId.current = sid;
     });
 
     syncWithCloud();
-    fetchUserAccess(userInfo.tg_id);
+    fetchUserAccess();
   }, []);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -159,9 +159,7 @@ const App: React.FC = () => {
     setCheckoutProduct(null); 
     setActiveSecretProduct(null); 
     setView(newView); 
-    
     if (newView === 'account') fetchUserAccess();
-    
     analyticsService.updateSessionPath(activeSessionId.current, newView);
   };
 
