@@ -50,23 +50,28 @@ const App: React.FC = () => {
     if (!telegramConfig.googleSheetWebhook) return;
     
     const userInfo = getDetailedTgUser();
-    const rawIds = [
-      forcedId,
-      userInfo.username,
-      userInfo.tg_id,
-      userInfo.username?.replace(/^@/, ''),
-      `@${userInfo.username?.replace(/^@/, '')}`,
-      userIdentifier
-    ];
     
-    const targetIds = Array.from(new Set(
-      rawIds
-        .filter(Boolean)
-        .map(id => String(id).trim())
-        .filter(id => id !== 'guest' && id !== 'none' && id !== '000000' && id !== 'undefined')
-    ));
+    // СОЗДАЕМ МАКСИМАЛЬНЫЙ СПИСОК ВАРИАНТОВ ДЛЯ ПРОВЕРКИ
+    // Это решит проблему с @Olga_lav / @olga_lav / Olga_lav в таблице
+    const variants = new Set<string>();
+    
+    if (forcedId) variants.add(forcedId);
+    if (userInfo.username && userInfo.username !== '@guest') {
+      variants.add(userInfo.username); // @Olga_lav
+      variants.add(userInfo.username.toLowerCase()); // @olga_lav
+      variants.add(userInfo.username.replace(/^@/, '')); // Olga_lav
+      variants.add(userInfo.username.replace(/^@/, '').toLowerCase()); // olga_lav
+    }
+    if (userInfo.tg_id && userInfo.tg_id !== '000000') {
+      variants.add(userInfo.tg_id);
+    }
+    if (userIdentifier && userIdentifier !== 'guest') {
+      variants.add(userIdentifier);
+      variants.add(userIdentifier.toLowerCase());
+    }
 
-    console.log("🔍 [Permissions] Проверка для:", targetIds);
+    const targetIds = Array.from(variants);
+    console.log("🔐 [Permissions] Проверка всех вариантов ника:", targetIds);
 
     await Promise.all(targetIds.map(async (id) => {
       try {
@@ -126,8 +131,6 @@ const App: React.FC = () => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
-        
-        // ВАЖНО: Сначала обновили каталог, потом сразу перепроверили доступы
         fetchUserAccess();
       }
     } catch (e) {}
@@ -142,6 +145,7 @@ const App: React.FC = () => {
     });
 
     syncWithCloud();
+    // Проверяем доступ МГНОВЕННО по текущим данным
     fetchUserAccess(userInfo.username);
     fetchUserAccess(userInfo.tg_id);
   }, []);
@@ -154,12 +158,12 @@ const App: React.FC = () => {
 
   const purchasedProducts = useMemo(() => {
     return products.filter(p => {
-      // ПРОВЕРКА: Либо ID совпадает, либо название товара содержится в списке доступов
       const pid = String(p.id).trim().toLowerCase();
       const pTitle = String(p.title).trim().toLowerCase();
       
       const hasAccess = userPurchasedIds.some(accessId => {
         const cleanAccess = String(accessId).trim().toLowerCase();
+        // Сопоставляем по ID, по "all" или по названию товара (на случай если в Permissions написано название)
         return cleanAccess === pid || cleanAccess === 'all' || pTitle.includes(cleanAccess) || cleanAccess.includes(pTitle);
       });
 

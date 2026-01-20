@@ -1,7 +1,7 @@
 
 /**
- * СУПЕРМОЗГ V31: ГАРАНТИЯ ДАННЫХ
- * Исправляет пропуски ника и вкладок в Sessions.
+ * СУПЕРМОЗГ V32: ГАРАНТИЯ СИНХРОНИЗАЦИИ
+ * Решает проблему регистров и пустых вкладок в Sessions.
  */
 
 const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
@@ -26,7 +26,7 @@ export const getDetailedTgUser = () => {
 
     const userId = userData?.id ? String(userData.id) : (localStorage.getItem('olga_cache_id') || '000000');
     
-    // ПРИОРИТЕТ: Реальный ник из TG > Кэш > ID
+    // Генерируем варианты ника для максимальной совместимости
     let username = '@guest';
     if (userData?.username) {
       username = `@${userData.username.replace(/^@/, '')}`;
@@ -45,8 +45,6 @@ export const getDetailedTgUser = () => {
       localStorage.setItem('olga_cache_id', userId);
       if (userData.username) {
         localStorage.setItem('olga_cache_nick', `@${userData.username.replace(/^@/, '')}`);
-      } else {
-        localStorage.setItem('olga_cache_nick', `@id${userData.id}`);
       }
       localStorage.setItem('olga_cache_name', fullName);
     }
@@ -59,6 +57,13 @@ export const getDetailedTgUser = () => {
 
 const sendToScript = async (payload: any) => {
   try {
+    const userInfo = getDetailedTgUser();
+    
+    // Если это старт и ника нет — ждем чуть-чуть
+    if (payload.type === 'session_start' && userInfo.username === '@guest') {
+      await new Promise(r => setTimeout(r, 800));
+    }
+
     const webhook = ((): string => {
       const saved = localStorage.getItem('olga_tg_config');
       if (saved) {
@@ -70,26 +75,21 @@ const sendToScript = async (payload: any) => {
       return DEFAULT_WEBHOOK;
     })();
 
-    // Небольшая пауза для инициализации TG SDK при первом запуске
-    if (payload.type === 'session_start') {
-      await new Promise(r => setTimeout(r, 500));
-    }
+    const freshUser = getDetailedTgUser();
+    const currentPath = payload.city || payload.path || 'home';
 
-    const userInfo = getDetailedTgUser();
-    
-    // Формируем максимально подробный объект, чтобы скрипт точно нашел вкладку и ник
     const data: any = {
       ...payload,
-      // Дублируем поля пути для разных версий скриптов
-      city: payload.city || payload.path || 'home',
-      path: payload.city || payload.path || 'home',
-      page: payload.city || payload.path || 'home',
+      // Дублируем вкладку во все возможные поля для скрипта
+      city: currentPath,
+      path: currentPath,
+      page: currentPath,
+      vkladka: currentPath,
       
-      tgUsername: userInfo.username,
-      dateStr: new Date().toLocaleString('ru-RU'),
-      // utmSource идет в колонку D/E в зависимости от настроек вашего скрипта
-      utmSource: userInfo.username,
-      userId: userInfo.tg_id
+      tgUsername: freshUser.username,
+      utmSource: freshUser.username,
+      userId: freshUser.tg_id,
+      dateStr: new Date().toLocaleString('ru-RU')
     };
 
     fetch(webhook, {
@@ -99,7 +99,7 @@ const sendToScript = async (payload: any) => {
       body: JSON.stringify(data)
     }).catch(e => console.error('Log error:', e));
 
-    console.log(`🚀 [LOG] ${data.type} | Path: ${data.city} | User: ${data.utmSource}`);
+    console.log(`📡 [LOG] ${data.type} | ${currentPath} | ${data.tgUsername}`);
   } catch (err) {
     console.error('Send error:', err);
   }
@@ -115,39 +115,21 @@ export const analyticsService = {
       price: order.price,
       name: order.customerName,
       email: order.customerEmail,
-      phone: order.customerPhone || '---',
       orderId: orderId,
       paymentStatus: 'pending',
-      agreedToMarketing: order.agreedToMarketing ? 'Да' : 'Нет',
-      tgUsername: userInfo.username,
-      productId: order.productId || 'none'
+      tgUsername: userInfo.username
     });
     return { ...order, id: orderId };
   },
-  startSession: async (forcedId?: string) => {
+  startSession: async () => {
     const sid = `SID_${Date.now()}`;
-    await sendToScript({
-      type: 'session_start',
-      city: 'home',
-      country: 'RU',
-      sessionId: sid
-    });
+    await sendToScript({ type: 'session_start', sessionId: sid });
     return sid;
   },
   updateSessionPath: async (sid: string, path: string) => {
-    await sendToScript({
-      type: 'path_update',
-      city: path,
-      path: path,
-      country: 'RU',
-      sessionId: sid
-    });
+    await sendToScript({ type: 'path_update', sessionId: sid, path: path, city: path });
   },
   updateOrderStatus: async (id: string, status: string) => {
-    await sendToScript({
-      type: 'status_update',
-      orderId: id,
-      paymentStatus: status
-    });
+    await sendToScript({ type: 'status_update', orderId: id, paymentStatus: status });
   }
 };
