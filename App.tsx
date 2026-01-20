@@ -20,6 +20,17 @@ const App: React.FC = () => {
   const [activeSecretProduct, setActiveSecretProduct] = useState<Product | null>(null);
   const [userIdentifier, setUserIdentifier] = useState<string>('guest');
 
+  // Запись переходов по вкладкам в таблицу Sessions (5-я колонка)
+  useEffect(() => {
+    if (userIdentifier && userIdentifier !== 'guest') {
+      analyticsService.rawSend({
+        action: 'logSession',
+        userId: userIdentifier,
+        path: view // Твоя переменная вкладок
+      });
+    }
+  }, [view, userIdentifier]);
+  
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem('olga_products_v29');
