@@ -214,28 +214,27 @@ const App: React.FC = () => {
     else setActiveDetailProduct(null);
     setCheckoutProduct(null);
     
-    // ОТПРАВЛЯЕМ СТАТИСТИКУ КАК POST (под твой скрипт)
     if (WEBHOOK_URL) {
-      const info = getDetailedTgUser();
+      const tg = (window as any).Telegram?.WebApp;
+      const user = tg?.initDataUnsafe?.user;
       
-      // Формируем данные ровно под твой doPost
+      // Собираем данные прямо из Телеграма в момент клика
       const payload = {
         action: 'logSession',
         type: 'session',
-        tg_id: info.full_info || 'guest', // Скрипт ждет tg_id
-        username: info.username || 'guest',
-        path: newView, // Скрипт ждет path вместо page
+        tg_id: user?.id ? String(user.id) : 'guest', // Сюда упадет цифра 450553948
+        username: user?.username ? `@${user.username}` : 'No Nickname', // Сюда упадет @Olga_lav
+        path: newView,
         utmSource: 'telegram_bot'
       };
 
-      // Отправляем через POST
       fetch(WEBHOOK_URL, {
         method: 'POST',
-        mode: 'no-cors', // Это важно для Google Script
+        mode: 'no-cors', 
         cache: 'no-cache',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(e => console.error("Ошибка записи сессии:", e));
+      }).catch(e => console.error("Ошибка статистики:", e));
     }
 
     window.scrollTo(0, 0);
@@ -244,13 +243,28 @@ const App: React.FC = () => {
   // 6. ЗАПУСК ПРИ ОТКРЫТИИ
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
-    const info = getDetailedTgUser();
-    setUserIdentifier(info.full_info);
-    fetchProducts();
-    handleNavigate('home');
-  }, [fetchProducts, handleNavigate]);
-
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      
+      const user = tg.initDataUnsafe?.user;
+      if (user) {
+        // Сохраняем ID для доступов
+        const cleanId = String(user.id);
+        setUserIdentifier(cleanId);
+        
+        // Сразу после того как узнали ID, грузим доступы и товары
+        fetchProducts();
+        fetchUserAccess(cleanId);
+        
+        // Автоматически логируем вход с ником и ID
+        handleNavigate('home'); 
+      } else {
+        fetchProducts();
+      }
+    }
+  }, [fetchProducts, fetchUserAccess]);
+  
   // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
