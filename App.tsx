@@ -229,6 +229,7 @@ useEffect(() => {
   const syncWithCloud = useCallback(async () => {
 
  
+  const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
@@ -265,10 +266,16 @@ useEffect(() => {
         });
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
-        fetchUserAccess();
+        
+        // Запускаем проверку доступа после загрузки товаров
+        if (userIdentifier && userIdentifier !== 'guest') {
+          fetchUserAccess(userIdentifier, userInfo?.username);
+        }
       }
-    } catch (e) { }
-  }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
+    } catch (e) {
+      console.error("Ошибка при загрузке каталога:", e);
+    }
+  }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
 
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -279,14 +286,21 @@ useEffect(() => {
 
     const info = getDetailedTgUser();
     // Теперь внизу будет: @username (12345678)
-    setUserIdentifier(info.full_info); 
+    const fullUserInfo = info.full_info;
+    setUserIdentifier(fullUserInfo); 
 
     analyticsService.startSession().then(sid => {
       activeSessionId.current = sid;
     });
 
-    syncWithCloud();
-  }, []);
+    // Запускаем загрузку товаров (она теперь async)
+    fetchProducts();
+    
+    // Отправляем начальную сессию в таблицу
+    if (typeof saveSessionToSheet === 'function') {
+      saveSessionToSheet(fullUserInfo, info.username || 'guest', 'home');
+    }
+  }, [fetchProducts]);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
