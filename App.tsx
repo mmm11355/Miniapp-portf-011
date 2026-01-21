@@ -8,6 +8,30 @@ import {
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
 } from 'lucide-react';
 
+const ProductDetail = ({ product, onClose, onCheckout, userIdentifier, userPurchasedIds }: any) => {
+  // Этот мини-компонент просто перенаправляет данные в твой настоящий Лонгрид
+  // Если у тебя лонгрид называется по-другому, мы это увидим
+  return (
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
+       <div className="p-6">
+         <button onClick={onClose} className="mb-4 text-slate-400">← Назад</button>
+         <h1 className="text-2xl font-bold mb-4">{product.title}</h1>
+         <div className="prose" dangerouslySetInnerHTML={{ __html: product.description }} />
+         
+         <div className="mt-8">
+           {userPurchasedIds.includes(String(product.id)) ? (
+             <button className="w-full py-4 bg-green-500 text-white rounded-2xl font-bold">ОТКРЫТЬ МАТЕРИАЛ</button>
+           ) : (
+             <button onClick={() => onCheckout(product)} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">
+               КУПИТЬ ЗА {product.price} ₽
+             </button>
+           )}
+         </div>
+       </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('home');
   const [portfolioTab, setPortfolioTab] = useState<'cases' | 'bonuses'>('cases');
@@ -504,12 +528,12 @@ const handleNavigate = (newView, product = null) => {
         <ProductDetail
           product={activeDetailProduct}
           onClose={() => setActiveDetailProduct(null)}
-          onCheckout={(p) => {
+          onCheckout={(p: any) => {
             setActiveDetailProduct(null);
             setCheckoutProduct(p);
           }}
-          userIdentifier={userIdentifier === 'guest' ? (userInfo?.id?.toString() || 'guest') : userIdentifier}
-          userPurchasedIds={userPurchasedIds || []}
+          userIdentifier={userIdentifier}
+          userPurchasedIds={userPurchasedIds}
         />
       )}
 
