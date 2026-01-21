@@ -14,104 +14,99 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
   const renderContent = (text: string) => {
     if (!text) return null;
     
-    // Регулярное выражение для поиска [[video:...]], [[image:...]] и обычных ссылок http/https
+    // Поиск видео, фото и ссылок
     const parts = text.split(/(\[\[(?:video|image):.*?\]\]|https?:\/\/[^\s]+)/g);
     
     return parts.map((part, index) => {
-      // Обработка Видео
       if (part.startsWith('[[video:')) {
         const url = part.replace('[[video:', '').replace(']]', '');
         const embedUrl = url.includes('rutube') 
           ? url.replace('rutube.ru/video/', 'rutube.ru/play/embed/') 
           : url;
         return (
-          <div key={index} className="my-6 aspect-video rounded-3xl overflow-hidden shadow-lg bg-black">
+          <div key={index} className="my-2 aspect-video rounded-[10px] overflow-hidden bg-black shadow-sm">
             <iframe src={embedUrl} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
           </div>
         );
       }
       
-      // Обработка Фото внутри текста
       if (part.startsWith('[[image:')) {
         const url = part.replace('[[image:', '').replace(']]', '');
         return (
-          <div key={index} className="my-6">
+          <div key={index} className="my-2">
             <img 
               src={url} 
-              className="w-full rounded-3xl shadow-md cursor-zoom-in active:scale-[1.01] transition-transform" 
+              className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:opacity-90 transition-opacity" 
               onClick={() => window.open(url, '_blank')}
             />
           </div>
         );
       }
 
-      // Обработка кликабельных ссылок в тексте
       if (part.startsWith('http')) {
         return (
-          <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline break-all">
+          <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline break-all inline-block font-medium">
             {part}
           </a>
         );
       }
       
-      return <span key={index} className="whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: part }} />;
+      return <span key={index} className="whitespace-pre-wrap leading-snug text-slate-700" dangerouslySetInnerHTML={{ __html: part }} />;
     });
   };
 
   return (
     <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
-      {/* Верхнее подменю с кнопкой назад и заголовком раздела */}
-      <div className="sticky top-0 bg-white/90 backdrop-blur-md z-50 px-5 py-4 border-b border-slate-50 flex items-center gap-4">
-        <button onClick={onClose} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors">
-          <span className="text-2xl">←</span>
-          <span className="text-[12px] font-bold uppercase tracking-wider">Назад</span>
+      {/* ВЕРХНЯЯ ПАНЕЛЬ СО СТРЕЛКОЙ */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <button onClick={onClose} className="flex items-center gap-1 text-slate-500 hover:text-slate-900 transition-colors">
+          <span className="text-xl">←</span>
+          <span className="text-[11px] font-bold uppercase tracking-tight">Назад в раздел</span>
         </button>
-        <div className="h-4 w-[1px] bg-slate-200 mx-2"></div>
-        <div className="flex items-center gap-2">
-           <div className="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center text-white text-[8px] font-bold">OA</div>
-           <span className="text-[10px] font-black uppercase text-slate-400">Кейс / Товар</span>
+        <div className="flex items-center gap-2 pr-2">
+           <div className="w-6 h-6 bg-indigo-600 rounded-[4px] flex items-center justify-center text-white text-[8px] font-bold">OA</div>
+           <span className="text-[9px] font-black uppercase text-slate-400">О ГЕТКУРС</span>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-8 pb-44">
-        {/* ЗАГОЛОВОК ТЕПЕРЬ ВЫШЕ ВСЕГО */}
-        <h1 className="text-2xl font-black text-slate-900 mb-6 leading-tight uppercase tracking-tight">
+      <div className="max-w-2xl mx-auto px-5 pt-6 pb-40">
+        {/* АККУРАТНЫЙ ЗАГОЛОВОК (уменьшен шрифт) */}
+        <h1 className="text-base font-black text-slate-900 mb-4 leading-tight uppercase tracking-tight">
           {product.title}
         </h1>
 
-        {/* Главное фото товара */}
-        <div className="mb-8">
-           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-2xl border border-slate-50" />
+        {/* Главное фото (скругление 10px) */}
+        <div className="mb-4">
+           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-sm border border-slate-50" />
         </div>
 
-        {/* Текст и медиа из detailFullDescription */}
-        <div className="text-[15px] text-slate-600 space-y-2">
+        {/* Плотный контент */}
+        <div className="text-[14px] text-slate-700 space-y-0.5">
           {renderContent(product.detailFullDescription || product.description)}
         </div>
       </div>
 
-      {/* КНОПКА ПРИБИТА К НИЗУ (выше меню) */}
-      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110]">
+      {/* ФИКСИРОВАННАЯ КНОПКА (Скругление 10px, выше меню) */}
+      <div className="fixed bottom-24 left-0 right-0 px-5 py-3 z-[110]">
         <div className="max-w-2xl mx-auto">
           {userPurchasedIds?.includes(String(product.id)) ? (
-            <button className="w-full py-5 rounded-[2rem] bg-emerald-500 text-white font-bold text-sm uppercase tracking-widest shadow-2xl">
+            <button className="w-full py-4 rounded-[10px] bg-emerald-500 text-white font-bold text-[12px] uppercase tracking-wider shadow-lg">
               МАТЕРИАЛ КУПЛЕН
             </button>
           ) : (
             <button 
               onClick={() => {
-                // Если есть внешняя ссылка - переходим, если нет - на чекаут
-                if (product.externalLink && !product.prodamusId) {
+                if (product.externalLink && product.section !== 'shop') {
                    window.open(product.externalLink, '_blank');
                 } else {
                    onCheckout(product);
                 }
               }}
-              // ДАННЫЕ ИЗ ТАБЛИЦЫ: цвет и текст кнопки
               style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
-              className="w-full py-5 rounded-[2rem] text-white font-bold text-sm uppercase tracking-widest shadow-2xl active:scale-95 transition-all"
+              className="w-full py-4 rounded-[10px] text-white font-bold text-[12px] uppercase tracking-wider shadow-xl active:scale-[0.98] transition-all"
             >
-              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} {product.price ? `ЗА ${product.price} ₽` : ''}
+              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
+              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
             </button>
           )}
         </div>
