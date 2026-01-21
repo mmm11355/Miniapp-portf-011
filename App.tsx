@@ -648,7 +648,18 @@ const App: React.FC = () => {
         <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Инструкции и ссылки:</h4>
         <div className="text-slate-700 text-[14px] leading-relaxed font-medium whitespace-pre-wrap">
           {/* Безопасное отображение текста */}
-          {activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."}
+          
+         <div 
+  className="text-slate-700 text-[14px] leading-relaxed font-medium whitespace-pre-wrap"
+  dangerouslySetInnerHTML={{ 
+    __html: (activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится...")
+      .replace(
+        /(https?:\/\/[^\s]+)/g, 
+        '<a href="$1" target="_blank" style="color:#4f46e5; text-decoration:underline; font-weight:bold; word-break:break-all;">$1</a>'
+      ) 
+  }} 
+/>
+          
         </div>
       </div>
 
