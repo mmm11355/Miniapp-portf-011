@@ -11,6 +11,21 @@ import {
 const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) => {
   if (!product) return null;
 
+const Linkify = ({ text }: { text: string }) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return (
+    <span className="whitespace-pre-wrap">
+      {parts.map((part, i) => 
+        urlRegex.test(part) 
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold break-all">{part}</a>
+          : <span key={i}>{part}</span>
+      )}
+    </span>
+  );
+};
+  
   const renderContent = (text: string) => {
     if (!text) return null;
     // Регулярка для видео, картинок и ссылок
@@ -88,31 +103,35 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
       {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
       <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
         <div className="max-w-2xl mx-auto">
-          {hasAccess ? (
-            <button 
-              onClick={() => {
-                // Если куплено — открываем secretContent
-                const link = product.secretContent || product.externalLink;
-                if (link) window.open(link, '_blank');
-                else alert('Материал скоро будет загружен');
-              }}
-              className="w-full py-5 rounded-[10px] bg-emerald-500 text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all"
-            >
-              ОТКРЫТЬ МАТЕРИАЛ
-            </button>
-          ) : (
-            <button 
-              onClick={() => {
-                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
-                else onCheckout(product);
-              }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
-              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
-            >
-              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
-              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
-            </button>
-          )}
+        {hasAccess ? (
+  <button
+    onClick={() => {
+      // 1. Закрываем текущее окно товара
+      onClose(); 
+      // 2. Переключаем вкладку приложения на Личный кабинет
+      // (Проверь, чтобы функция setView была доступна в этом компоненте)
+      if (typeof setView === 'function') setView('account');
+    }}
+    style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+    className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+  >
+    <CheckCircle size={18} />
+    ОТКРЫТЬ В КАБИНЕТЕ
+  </button>
+) : (
+  <button
+    onClick={() => {
+      if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
+      else onCheckout(product);
+    }}
+    style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+    className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
+  >
+    {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'}
+    {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
+  </button>
+)}
+          
         </div>
       </div>
     </div>
@@ -542,6 +561,7 @@ const App: React.FC = () => {
 )}
 
    {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
+{/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
 {activeSecretProduct && (
   <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto page-transition">
     <div className="p-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-50">
@@ -553,7 +573,16 @@ const App: React.FC = () => {
     </div>
 
     <div className="p-6 space-y-8">
-      <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
+      {/* МЕДИА-БЛОК: Берет ссылки из колонки secretMedia через запятую */}
+      {(activeSecretProduct.secretMedia || activeSecretProduct.SecretMedia) ? (
+        <div className="flex flex-col gap-4">
+          {(activeSecretProduct.secretMedia || activeSecretProduct.SecretMedia).split(',').map((url: string, i: number) => (
+            <MediaRenderer key={i} url={url.trim()} className="w-full rounded-[2.5rem] shadow-lg border border-slate-100" />
+          ))}
+        </div>
+      ) : (
+        <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
+      )}
       
       <div className="space-y-2">
         <h2 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tighter">
@@ -564,11 +593,11 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* САМОЕ ГЛАВНОЕ: Вывод данных из колонки secretContent (или U в таблице) */}
       <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shadow-inner">
         <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Инструкции и ссылки:</h4>
-        <div className="text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap font-medium">
-          {activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."}
+        <div className="text-slate-700 text-[14px] leading-relaxed font-medium">
+          {/* ТЕПЕРЬ ССЫЛКИ КЛИКАБЕЛЬНЫЕ */}
+          <Linkify text={activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."} />
         </div>
       </div>
 
@@ -580,7 +609,7 @@ const App: React.FC = () => {
       </button>
     </div>
   </div>
-)}  
+)}
   
     
     </Layout>
