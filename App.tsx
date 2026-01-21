@@ -524,15 +524,17 @@ const handleNavigate = (newView, product = null) => {
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none opacity-20"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{userIdentifier}</span></div>
     
   
+     {/* ВОЗВРАЩАЕМ ТВОЙ РОДНОЙ ЛОНГРИД */}
       {activeDetailProduct && (
-        <ProductDetail
+        <ItemDetail
           product={activeDetailProduct}
           onClose={() => setActiveDetailProduct(null)}
-          onCheckout={(p: any) => {
+          onCheckout={(p) => {
             setActiveDetailProduct(null);
             setCheckoutProduct(p);
           }}
-          userIdentifier={userIdentifier}
+          /* Передаем ID пользователя для проверки доступа внутри лонгрида */
+          userIdentifier={userIdentifier === 'guest' ? (userInfo?.id?.toString() || 'guest') : userIdentifier}
           userPurchasedIds={userPurchasedIds}
         />
       )}
