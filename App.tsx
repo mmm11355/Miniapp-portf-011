@@ -287,9 +287,8 @@ const handleNavigate = (newView, product = null) => {
       )}
 
       
-     {view === 'portfolio' && (
+  {view === 'portfolio' && (
   <div className="space-y-6 page-transition">
-    {/* Твои кнопки переключения Кейсы/Бонусы */}
     <div className="flex bg-slate-200/40 p-1 rounded-2xl mx-1">
       <button 
         onClick={() => setPortfolioTab('cases')} 
@@ -304,7 +303,7 @@ const handleNavigate = (newView, product = null) => {
         Бонусы
       </button>
     </div>
-
+    
     <div className="grid gap-6">
       {(portfolioTab === 'cases' ? products.filter(p => p.section === 'portfolio') : products.filter(p => p.section === 'bonus')).map(p => (
         <div 
@@ -316,16 +315,16 @@ const handleNavigate = (newView, product = null) => {
             {p.title}
           </h3>
           
-          {/* Картинка: вызывает handleNavigate для открытия лонгрида */}
           <MediaRenderer 
             url={p.imageUrl} 
             type={p.mediaType} 
             className="w-full aspect-video object-cover rounded-2xl shadow-sm cursor-pointer" 
+            /* ЗАМЕНИЛИ ТУТ */
             onClick={() => p.useDetailModal ? handleNavigate('portfolio', p) : (p.externalLink && window.open(p.externalLink, '_blank'))} 
           />
 
-          {/* Твоя кнопка: тоже теперь работает через handleNavigate */}
           <button 
+            /* И ЗАМЕНИЛИ ТУТ */
             onClick={() => p.useDetailModal ? handleNavigate('portfolio', p) : (p.externalLink && window.open(p.externalLink, '_blank'))} 
             style={{ backgroundColor: p.buttonColor }} 
             className="w-full py-4 rounded-2xl text-white font-bold text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
@@ -499,6 +498,25 @@ const handleNavigate = (newView, product = null) => {
             </div></div>)
       )}
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none opacity-20"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{userIdentifier}</span></div>
+    
+  
+      {activeDetailProduct && (
+        <ProductDetail
+          product={activeDetailProduct}
+          onClose={() => setActiveDetailProduct(null)}
+          onCheckout={(p) => {
+            setActiveDetailProduct(null);
+            setCheckoutProduct(p);
+          }}
+          userIdentifier={userIdentifier === 'guest' ? (userInfo?.id?.toString() || 'guest') : userIdentifier}
+          userPurchasedIds={userPurchasedIds || []}
+        />
+      )}
+
+     
+      </Layout>
+    
+    
     </Layout>
   );
 };
