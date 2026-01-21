@@ -95,8 +95,9 @@ const Linkify = ({ text }: { text: string }) => {
            <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" />
         </div>
 
-        <div className="text-[14px] text-slate-700 leading-relaxed">
+        <div className="text-[16px] text-slate-700 leading-relaxed">
           {renderContent(product.detailFullDescription || product.description)}
+        
         </div>
       </div>
 
@@ -635,7 +636,7 @@ const App: React.FC = () => {
       <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
       
       <div className="space-y-2">
-        <h2 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tighter">
+        <h2 className="text-2 font-black text-slate-900 leading-tight uppercase tracking-tighter">
           {activeSecretProduct.title}
         </h2>
         <div className="flex items-center gap-2 text-indigo-500 font-bold text-[10px] uppercase tracking-widest">
