@@ -13,8 +13,6 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 
   const renderContent = (text: string) => {
     if (!text) return null;
-    
-    // Поиск видео, фото и ссылок
     const parts = text.split(/(\[\[(?:video|image):.*?\]\]|https?:\/\/[^\s]+)/g);
     
     return parts.map((part, index) => {
@@ -24,7 +22,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
           ? url.replace('rutube.ru/video/', 'rutube.ru/play/embed/') 
           : url;
         return (
-          <div key={index} className="my-2 aspect-video rounded-[10px] overflow-hidden bg-black shadow-sm">
+          <div key={index} className="my-4 aspect-video rounded-[10px] overflow-hidden bg-black shadow-sm">
             <iframe src={embedUrl} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
           </div>
         );
@@ -33,7 +31,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
       if (part.startsWith('[[image:')) {
         const url = part.replace('[[image:', '').replace(']]', '');
         return (
-          <div key={index} className="my-2">
+          <div key={index} className="my-4">
             <img 
               src={url} 
               className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:opacity-90 transition-opacity" 
@@ -51,46 +49,46 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
         );
       }
       
-      return <span key={index} className="whitespace-pre-wrap leading-snug text-slate-700" dangerouslySetInnerHTML={{ __html: part }} />;
+      return <span key={index} className="whitespace-pre-wrap leading-relaxed text-slate-700 block mb-2" dangerouslySetInnerHTML={{ __html: part }} />;
     });
   };
 
   return (
     <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
-      {/* ВЕРХНЯЯ ПАНЕЛЬ СО СТРЕЛКОЙ */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-        <button onClick={onClose} className="flex items-center gap-1 text-slate-500 hover:text-slate-900 transition-colors">
-          <span className="text-xl">←</span>
-          <span className="text-[11px] font-bold uppercase tracking-tight">Назад в раздел</span>
+      {/* ВЕРХНЯЯ ПАНЕЛЬ: Теперь со стрелкой и отступами */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
+        <button onClick={onClose} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors">
+          <span className="text-2xl leading-none">←</span>
+          <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
         </button>
         <div className="flex items-center gap-2 pr-2">
-           <div className="w-6 h-6 bg-indigo-600 rounded-[4px] flex items-center justify-center text-white text-[8px] font-bold">OA</div>
-           <span className="text-[9px] font-black uppercase text-slate-400">О ГЕТКУРС</span>
+           <div className="w-7 h-7 bg-indigo-600 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
+           <div className="text-[10px] font-black uppercase text-slate-400 leading-tight">О ГЕТКУРС <br/><span className="text-[8px] font-medium">и не только</span></div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-5 pt-6 pb-40">
-        {/* АККУРАТНЫЙ ЗАГОЛОВОК (уменьшен шрифт) */}
-        <h1 className="text-base font-black text-slate-900 mb-4 leading-tight uppercase tracking-tight">
+      <div className="max-w-2xl mx-auto px-6 pt-10 pb-48">
+        {/* ЗАГОЛОВОК: Больше воздуха сверху (pt-10) и снизу (mb-8) */}
+        <h1 className="text-[17px] font-black text-slate-900 mb-8 leading-tight uppercase tracking-tight">
           {product.title}
         </h1>
 
-        {/* Главное фото (скругление 10px) */}
-        <div className="mb-4">
-           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-sm border border-slate-50" />
+        {/* ГЛАВНОЕ ФОТО: Скругление 10px */}
+        <div className="mb-8">
+           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" />
         </div>
 
-        {/* Плотный контент */}
-        <div className="text-[14px] text-slate-700 space-y-0.5">
+        {/* КОНТЕНТ: Вернули комфортные отступы */}
+        <div className="text-[14px] text-slate-700 leading-relaxed">
           {renderContent(product.detailFullDescription || product.description)}
         </div>
       </div>
 
-      {/* ФИКСИРОВАННАЯ КНОПКА (Скругление 10px, выше меню) */}
-      <div className="fixed bottom-24 left-0 right-0 px-5 py-3 z-[110]">
+      {/* КНОПКА: Скругление 10px, выше меню */}
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110]">
         <div className="max-w-2xl mx-auto">
           {userPurchasedIds?.includes(String(product.id)) ? (
-            <button className="w-full py-4 rounded-[10px] bg-emerald-500 text-white font-bold text-[12px] uppercase tracking-wider shadow-lg">
+            <button className="w-full py-4 rounded-[10px] bg-emerald-500 text-white font-bold text-[13px] uppercase tracking-wider shadow-lg">
               МАТЕРИАЛ КУПЛЕН
             </button>
           ) : (
@@ -103,7 +101,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
                 }
               }}
               style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
-              className="w-full py-4 rounded-[10px] text-white font-bold text-[12px] uppercase tracking-wider shadow-xl active:scale-[0.98] transition-all"
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
             >
               {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
               {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
