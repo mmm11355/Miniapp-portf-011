@@ -120,65 +120,31 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('home');
-  const [portfolioTab, setPortfolioTab] = useState<'cases' | 'bonuses'>('cases');
+  // --- НАЧАЛО БЛОКА-СПАСАТЕЛЯ ---
+  const [activeTab, setActiveTab] = useState('shop');
+  const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
+  const [userIdentifier, setUserIdentifier] = useState<string>('');
   const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
-  const activeSessionId = useRef<string>('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
-  const [agreedToMarketing, setAgreedToMarketing] = useState(false);
-  const [activeSecretProduct, setActiveSecretProduct] = useState<Product | null>(null);
-  const [userIdentifier, setUserIdentifier] = useState<string>('guest');
-
-  // Добавь это туда, где лежат остальные useState
- const [userInfo, setUserInfo] = useState<any>(null);
+  const activeSessionId = useRef<string | null>(null);
   
-  // Запись переходов по вкладкам в таблицу Sessions (5-я колонка)
-  
-useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    // 1. Получаем данные пользователя при старте
-    if (tg?.initDataUnsafe?.user) {
-      setUserInfo(tg.initDataUnsafe.user);
-      if (tg.initDataUnsafe.user.id) {
-        setUserIdentifier(tg.initDataUnsafe.user.id.toString());
-      }
-    }
+  // Берем конфиг из импортированного файла
+  const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
+  const userInfo = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
 
-    // 2. Если мы уже знаем ID, подтягиваем доступы из таблицы
-    if (userIdentifier && userIdentifier !== 'guest') {
-      const username = tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || "";
-      fetchUserAccess(userIdentifier, username);
+  // 1. ФУНКЦИЯ ПЕРЕХОДОВ
+  const handleNavigate = useCallback((page: string) => {
+    setActiveTab(page);
+    // Отправляем статистику при переходе
+    const info = getDetailedTgUser();
+    const analyticsService: any = (window as any).analyticsService || { saveSessionToSheet: () => {} };
+    if (typeof analyticsService.saveSessionToSheet === 'function') {
+      analyticsService.saveSessionToSheet(info.full_info, info.username || 'guest', page);
     }
+    window.scrollTo(0, 0);
   }, [userIdentifier]);
-  
-  
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem('olga_products_v29');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return INITIAL_PRODUCTS;
-  });
 
-  const [telegramConfig, setTelegramConfig] = useState<TelegramConfig>(() => {
-    try {
-      const saved = localStorage.getItem('olga_tg_config');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      botToken: '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58',
-      chatId: '-1002095569247',
-      googleSheetWebhook: 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec'
-    };
-  });
-
-  const [activeDetailProduct, setActiveDetailProduct] = useState<Product | null>(null);
-  const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
-  const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
-
- // --- НАЧАЛО БЛОКА ---
+  // 2. ПРОВЕРКА ДОСТУПОВ
   const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
     const currentId = userId || userIdentifier;
     const currentName = username || (userInfo?.username || "");
@@ -192,24 +158,18 @@ useEffect(() => {
         variants.add(currentName.toLowerCase().trim());
         variants.add(currentName.replace('@', '').toLowerCase().trim());
       }
-      
       const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
       const res = await fetch(url);
       const data = await res.json();
-      
       if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
         const list = data.access || data.purchasedIds;
-        if (Array.isArray(list)) {
-          setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
-        }
+        if (Array.isArray(list)) setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
       }
-    } catch (e) {
-      console.error("Access error:", e);
-    } finally {
-      setIsRefreshingAccess(false);
-    }
-  }, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
+    } catch (e) { console.error("Access error:", e); }
+    finally { setIsRefreshingAccess(false); }
+  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
+  // 3. ЗАГРУЗКА ТОВАРОВ
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
@@ -219,7 +179,6 @@ useEffect(() => {
         const sanitizedData = rawData.filter((item: any) => (item.title || item.Title)).map((item: any, index: number) => {
           const p: any = {};
           Object.keys(item).forEach(key => { p[key.trim().toLowerCase()] = item[key]; });
-          const sectionVal = String(p.section || '').toLowerCase();
           return {
             ...p,
             id: p.id ? String(p.id).trim() : `row-${index + 2}`,
@@ -227,36 +186,37 @@ useEffect(() => {
             description: p.description || p.описание || '',
             price: Number(p.price || 0),
             imageUrl: p.imageurl || '',
-            section: ['bonus', 'бонусы'].includes(sectionVal) ? 'bonus' : (['portfolio', 'кейсы'].includes(sectionVal) ? 'portfolio' : 'shop'),
+            section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
             detailButtonText: p.detailbuttontext || p.buttontext || 'Оформить заказ'
           };
         });
         setProducts(sanitizedData);
-        if (userIdentifier && userIdentifier !== 'guest') {
-          fetchUserAccess(userIdentifier, userInfo?.username);
-        }
+        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess(userIdentifier, userInfo?.username);
       }
-    } catch (e) {
-      console.error("Products error:", e);
-    }
-  }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
+    } catch (e) { console.error("Products error:", e); }
+  }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier]);
 
-  const syncWithCloud = useCallback(async () => {
-    console.log("Cloud sync ready");
-  }, []);
-
+  // 4. ЗАПУСК ПРИЛОЖЕНИЯ
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     const info = getDetailedTgUser();
     setUserIdentifier(info.full_info); 
-    analyticsService.startSession().then(sid => { activeSessionId.current = sid; });
+    
+    // Инициализируем аналитику
+    const analytics: any = (window as any).analyticsService || { startSession: async () => 'id' };
+    analytics.startSession().then((sid: string) => { activeSessionId.current = sid; });
+    
     fetchProducts();
-    if (typeof saveSessionToSheet === 'function') {
-      saveSessionToSheet(info.full_info, info.username || 'guest', 'home');
+    
+    const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
+    if (typeof saveFunc === 'function') {
+      saveFunc(info.full_info, info.username || 'guest', 'home');
     }
   }, [fetchProducts]);
-  // --- КОНЕЦ БЛОКА ---
+
+  const syncWithCloud = useCallback(async () => { console.log("Sync ready"); }, []);
+  // --- КОНЕЦ БЛОКА-СПАСАТЕЛЯ ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
