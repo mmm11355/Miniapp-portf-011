@@ -566,10 +566,10 @@ const App: React.FC = () => {
         />
       )}
 
-   {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
+  
 {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
 {activeSecretProduct && (
-  <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto page-transition">
+  <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto">
     <div className="p-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-50">
       <button onClick={() => setActiveSecretProduct(null)} className="p-2 bg-slate-100 rounded-full text-slate-600 active:scale-90 transition-all">
         <ChevronLeft size={24} />
@@ -579,16 +579,8 @@ const App: React.FC = () => {
     </div>
 
     <div className="p-6 space-y-8">
-      {/* МЕДИА-БЛОК: Берет ссылки из колонки secretMedia через запятую */}
-      {(activeSecretProduct.secretMedia || activeSecretProduct.SecretMedia) ? (
-        <div className="flex flex-col gap-4">
-          {(activeSecretProduct.secretMedia || activeSecretProduct.SecretMedia).split(',').map((url: string, i: number) => (
-            <MediaRenderer key={i} url={url.trim()} className="w-full rounded-[2.5rem] shadow-lg border border-slate-100" />
-          ))}
-        </div>
-      ) : (
-        <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
-      )}
+      {/* Изображение товара */}
+      <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
       
       <div className="space-y-2">
         <h2 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tighter">
@@ -599,11 +591,12 @@ const App: React.FC = () => {
         </div>
       </div>
 
+      {/* Описание и ссылки из колонки U (secretContent) */}
       <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shadow-inner">
         <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Инструкции и ссылки:</h4>
-        <div className="text-slate-700 text-[14px] leading-relaxed font-medium">
-          {/* ТЕПЕРЬ ССЫЛКИ КЛИКАБЕЛЬНЫЕ */}
-          <Linkify text={activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."} />
+        <div className="text-slate-700 text-[14px] leading-relaxed font-medium whitespace-pre-wrap">
+          {/* Безопасное отображение текста */}
+          {activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."}
         </div>
       </div>
 
