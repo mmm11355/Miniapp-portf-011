@@ -34,7 +34,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
           <div key={index} className="my-4">
             <img 
               src={url} 
-              className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:opacity-90 transition-opacity" 
+              className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:opacity-90" 
               onClick={() => window.open(url, '_blank')}
             />
           </div>
@@ -43,7 +43,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 
       if (part.startsWith('http')) {
         return (
-          <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline break-all inline-block font-medium">
+          <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline break-all font-medium">
             {part}
           </a>
         );
@@ -53,52 +53,56 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
     });
   };
 
+  // Проверка доступа: приводим ID к строке для надежности
+  const hasAccess = userPurchasedIds?.map(String).includes(String(product.id));
+
   return (
-    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
-      {/* ВЕРХНЯЯ ПАНЕЛЬ: Теперь со стрелкой и отступами */}
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-40">
+      {/* ВЕРХНЯЯ ПАНЕЛЬ С КНОПКОЙ НАЗАД */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
         <button onClick={onClose} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors">
           <span className="text-2xl leading-none">←</span>
           <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
         </button>
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-2">
            <div className="w-7 h-7 bg-indigo-600 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
-           <div className="text-[10px] font-black uppercase text-slate-400 leading-tight">О ГЕТКУРС <br/><span className="text-[8px] font-medium">и не только</span></div>
+           <div className="text-[10px] font-black uppercase text-slate-400 leading-tight text-right">О ГЕТКУРС <br/><span className="text-[8px] font-medium">и не только</span></div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-10 pb-48">
-        {/* ЗАГОЛОВОК: Больше воздуха сверху (pt-10) и снизу (mb-8) */}
-        <h1 className="text-[17px] font-black text-slate-900 mb-8 leading-tight uppercase tracking-tight">
+      <div className="max-w-2xl mx-auto px-6 pt-8">
+        <h1 className="text-[17px] font-black text-slate-900 mb-6 leading-tight uppercase tracking-tight">
           {product.title}
         </h1>
 
-        {/* ГЛАВНОЕ ФОТО: Скругление 10px */}
-        <div className="mb-8">
+        <div className="mb-6">
            <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" />
         </div>
 
-        {/* КОНТЕНТ: Вернули комфортные отступы */}
         <div className="text-[14px] text-slate-700 leading-relaxed">
           {renderContent(product.detailFullDescription || product.description)}
         </div>
       </div>
 
-      {/* КНОПКА: Скругление 10px, выше меню */}
+      {/* КНОПКА ПРИБИТА К НИЗУ (ВЫШЕ МЕНЮ) */}
       <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110]">
         <div className="max-w-2xl mx-auto">
-          {userPurchasedIds?.includes(String(product.id)) ? (
-            <button className="w-full py-4 rounded-[10px] bg-emerald-500 text-white font-bold text-[13px] uppercase tracking-wider shadow-lg">
-              МАТЕРИАЛ КУПЛЕН
+          {hasAccess ? (
+            <button 
+              onClick={() => {
+                const link = product.secretContent || product.externalLink;
+                if (link) window.open(link, '_blank');
+                else alert('Материал будет доступен в ближайшее время');
+              }}
+              className="w-full py-5 rounded-[10px] bg-emerald-500 text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all"
+            >
+              ОТКРЫТЬ МАТЕРИАЛ
             </button>
           ) : (
             <button 
               onClick={() => {
-                if (product.externalLink && product.section !== 'shop') {
-                   window.open(product.externalLink, '_blank');
-                } else {
-                   onCheckout(product);
-                }
+                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
+                else onCheckout(product);
               }}
               style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
               className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
@@ -606,18 +610,17 @@ const handleNavigate = (newView, product = null) => {
     
   
     {/* Теперь используем ПРАВИЛЬНОЕ имя ProductDetail */}
-      {activeDetailProduct && (
-        <ProductDetail
-          product={activeDetailProduct}
-          onClose={() => setActiveDetailProduct(null)}
-          onCheckout={(p: any) => {
-            setActiveDetailProduct(null);
-            setCheckoutProduct(p);
-          }}
-          userIdentifier={userIdentifier}
-          userPurchasedIds={userPurchasedIds}
-        />
-      )}
+     {activeDetailProduct && (
+  <ProductDetail
+    product={activeDetailProduct}
+    onClose={() => setActiveDetailProduct(null)}
+    onCheckout={(p: any) => {
+      setActiveDetailProduct(null);
+      setCheckoutProduct(p);
+    }}
+    userPurchasedIds={userPurchasedIds}
+  />
+)}
 
      
   
