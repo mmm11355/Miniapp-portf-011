@@ -179,56 +179,54 @@ useEffect(() => {
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
  const fetchUserAccess = useCallback(async (userId, username) => {
-  // Используем переданные ID или те, что уже есть в приложении
-  const currentId = userId || userIdentifier;
-  const currentName = username || (userInfo?.username || "");
+    // Используем переданные ID или те, что уже есть в приложении
+    const currentId = userId || userIdentifier;
+    const currentName = username || (typeof userInfo !== 'undefined' ? userInfo?.username : '');
 
-  if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') {
-    console.log("Проверка провалена (Prop check failed):", { url: !!telegramConfig.googleSheetWebhook, id: currentId });
-    return;
-  }
-  
-  setIsRefreshingAccess(true);
-  
-  // Собираем все варианты написания ника и ID, чтобы точно найти пользователя в таблице
-  const variants = new Set();
-  variants.add(currentId.toString().toLowerCase().trim());
-  if (currentName) {
-    variants.add(currentName.toLowerCase().trim());
-    variants.add(currentName.replace('@', '').toLowerCase().trim());
-  }
-  
-  const idsParam = Array.from(variants).join(',');
-  // Формируем URL. Важно: action=getUserAccess
-  const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
-
-  try {
-    console.log("Запрос доступов к таблице:", url);
-    const res = await fetch(url);
-    const data = await res.json();
-
-    // Проверяем формат ответа (поддерживаем и 'success', и 'ok')
-    if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
-      const accessList = data.access || data.purchasedIds;
-      
-      if (Array.isArray(accessList)) {
-        const cleanAccess = accessList.map(item => String(item).trim().toLowerCase());
-        console.log("✅ Доступы успешно получены:", cleanAccess);
-        
-        // ОБНОВЛЯЕМ СОСТОЯНИЕ — после этого кнопка в лонгриде станет зеленой
-        setUserPurchasedIds(cleanAccess);
-      }
-    } else {
-      console.log("⚠️ Таблица не нашла доступов для этих ID:", idsParam, data);
-      setUserPurchasedIds([]); // Очищаем, если ничего не найдено
+    if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') {
+      console.log("Prop check failed:", { url: !!telegramConfig.googleSheetWebhook, id: currentId });
+      return;
     }
-  } catch (e) {
-    console.error("❌ Ошибка сети при получении доступов:", e);
-  } finally {
-    setIsRefreshingAccess(false);
-  }
-}, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
-  // ... дальше твой код
+    
+    setIsRefreshingAccess(true);
+    const variants = new Set();
+    
+    variants.add(currentId.toString().toLowerCase().trim());
+    if (currentName) {
+      variants.add(currentName.toLowerCase().trim());
+      variants.add(currentName.replace('@', '').toLowerCase().trim());
+    }
+    
+    const idsParam = Array.from(variants).join(',');
+    // Добавляем к URL параметр action и userIds
+    const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
+
+    try {
+      console.log("Запрос к таблице:", url);
+      const res = await fetch(url);
+      const data = await res.json();
+
+      // Проверяем формат: поддерживаем и 'success' (как в твоем коде) и 'ok'
+      if ((data.status === 'success' || data.ok) && (Array.isArray(data.access) || Array.isArray(data.purchasedIds))) {
+        const accessList = data.access || data.purchasedIds;
+        const cleanAccess = accessList.map((item) => String(item).trim().toLowerCase());
+        console.log("Получены доступы из таблицы:", cleanAccess);
+        
+        // Устанавливаем доступы
+        setUserPurchasedIds(cleanAccess);
+      } else {
+        console.log("Таблица вернула пустой доступ или ошибку:", data);
+        setUserPurchasedIds([]); 
+      }
+    } catch (e) {
+      console.error("Ошибка сети при получении доступов:", e);
+    } finally {
+      setIsRefreshingAccess(false);
+    }
+  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
+
+  // Здесь функция закрыта корректно. Дальше идет твой следующий блок:
+  const syncWithCloud = useCallback(async () => {
 
  
     if (!telegramConfig.googleSheetWebhook) return;
