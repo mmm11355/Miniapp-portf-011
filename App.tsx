@@ -514,8 +514,7 @@ const handleNavigate = (newView, product = null) => {
       )}
 
      
-      </Layout>
-    
+  
     
     </Layout>
   );
