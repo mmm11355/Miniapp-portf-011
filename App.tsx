@@ -120,9 +120,10 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
- // --- НАЧАЛО БЛОКА ---
+ // --- НАЧАЛО ПОЛНОГО БЛОКА ---
   const [activeTab, setActiveTab] = useState('shop');
-  const [view, setView] = useState('list'); // ТА САМАЯ ПЕРЕМЕННАЯ, КОТОРОЙ НЕ ХВАТАЛО
+  const [view, setView] = useState('list');
+  const [checkoutProduct, setCheckoutProduct] = useState<any>(null); // ВОТ ЭТО МЫ ПОТЕРЯЛИ
   const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
@@ -132,10 +133,11 @@ const App: React.FC = () => {
   const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
   const userInfo = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
 
-  // Функция для навигации
+  // Функция переходов
   const handleNavigate = useCallback((page: string) => {
     setActiveTab(page);
-    setView('list'); // Сбрасываем вид на список при переключении табов
+    setView('list');
+    setCheckoutProduct(null); // Сбрасываем выбранный товар при переходе
     const info = getDetailedTgUser();
     const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
     if (typeof saveFunc === 'function') {
@@ -145,7 +147,7 @@ const App: React.FC = () => {
   }, [userIdentifier]);
 
   // Загрузка доступов
-  const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
+  const fetchUserAccess = useCallback(async (userId?: string) => {
     const currentId = userId || userIdentifier;
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
     setIsRefreshingAccess(true);
@@ -153,7 +155,7 @@ const App: React.FC = () => {
       const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(currentId)}&_t=${Date.now()}`;
       const res = await fetch(url);
       const data = await res.json();
-      if ((data.status === 'success' || data.ok)) {
+      if (data.status === 'success' || data.ok) {
         const list = data.access || data.purchasedIds || [];
         setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
       }
@@ -188,7 +190,7 @@ const App: React.FC = () => {
   }, [fetchProducts]);
 
   const syncWithCloud = useCallback(async () => {}, []);
-  // --- КОНЕЦ БЛОКА ---
+  // --- КОНЕЦ ПОЛНОГО БЛОКА ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
