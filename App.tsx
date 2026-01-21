@@ -11,64 +11,80 @@ import {
 const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) => {
   if (!product) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
-      <div className="relative min-h-screen pb-32">
-        {/* Кнопка Назад */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-30 px-6 py-4 border-b border-slate-100 flex items-center gap-4">
-          <button onClick={onClose} className="p-2 text-slate-400 text-2xl hover:text-slate-600 transition-colors">←</button>
-          <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Описание товара</span>
-        </div>
-
-        <div className="max-w-2xl mx-auto px-6 pt-6 space-y-8">
-          {/* Универсальный показ медиа без внешних компонентов */}
-          <div className="w-full aspect-video rounded-[2rem] overflow-hidden shadow-2xl bg-slate-100">
-            {product.imageUrl && product.imageUrl.includes('video') || product.imageUrl && product.imageUrl.includes('rutube') ? (
-               <iframe 
-                 src={product.imageUrl.replace('watch/', 'play/').replace('rutube.ru/video/', 'rutube.ru/play/embed/')} 
-                 className="w-full h-full" 
-                 frameBorder="0" 
-                 allowFullScreen
-               ></iframe>
-            ) : (
-               <img 
-                 src={product.imageUrl} 
-                 alt="" 
-                 className="w-full h-full object-cover"
-                 onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x450?text=No+Image'; }}
-               />
-            )}
+  // Функция для превращения [[video:...]] и [[image:...]] в реальные плееры и фото
+  const renderContent = (text: string) => {
+    if (!text) return null;
+    
+    const parts = text.split(/(\[\[(?:video|image):.*?\]\])/g);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('[[video:')) {
+        const url = part.replace('[[video:', '').replace(']]', '');
+        const embedUrl = url.replace('rutube.ru/video/', 'rutube.ru/play/embed/');
+        return (
+          <div key={index} className="my-6 aspect-video rounded-2xl overflow-hidden shadow-lg bg-black">
+            <iframe src={embedUrl} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
           </div>
-
-          <div className="space-y-6">
-            <h1 className="text-2xl font-black text-slate-900 leading-tight">
-              {product.title}
-            </h1>
-            
-            {/* Текст описания */}
-            <div 
-              className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap text-base"
-              dangerouslySetInnerHTML={{ __html: product.detailFullDescription || product.description || 'Описание отсутствует' }}
+        );
+      }
+      
+      if (part.startsWith('[[image:')) {
+        const url = part.replace('[[image:', '').replace(']]', '');
+        return (
+          <div key={index} className="my-6">
+            <img 
+              src={url} 
+              className="w-full rounded-2xl shadow-md cursor-zoom-in active:scale-[1.02] transition-transform" 
+              onClick={() => window.open(url, '_blank')}
             />
           </div>
-        </div>
+        );
+      }
+      
+      return <div key={index} className="whitespace-pre-wrap leading-relaxed text-slate-600 my-2" dangerouslySetInnerHTML={{ __html: part }} />;
+    });
+  };
 
-        {/* Кнопка действия */}
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-lg border-t border-slate-100 z-40">
-          <div className="max-w-2xl mx-auto">
-            {userPurchasedIds?.includes(String(product.id)) ? (
-              <div className="w-full py-5 rounded-[2rem] bg-emerald-500 text-white font-bold uppercase tracking-widest shadow-lg text-center">
-                У ВАС УЖЕ ЕСТЬ ДОСТУП
-              </div>
-            ) : (
-              <button 
-                onClick={() => onCheckout(product)} 
-                className="w-full py-5 rounded-[2rem] bg-indigo-600 text-white font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-              >
-                КУПИТЬ ЗА {product.price || 0} ₽
-              </button>
-            )}
-          </div>
+  return (
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
+      {/* Шапка (твои цвета и логотип) */}
+      <div className="sticky top-0 bg-white/90 backdrop-blur-md z-50 px-5 py-3 border-b border-slate-50 flex items-center justify-between">
+        <button onClick={onClose} className="p-2 -ml-2 text-slate-400">← Назад</button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-[10px]">OA</div>
+          <div className="text-[10px] font-bold leading-none uppercase">О ГЕТКУРС <br/><span className="text-indigo-400 text-[8px]">и не только</span></div>
+        </div>
+        <div className="w-8"></div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-6 pt-6 pb-40">
+        {/* Главная картинка товара */}
+        <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-3xl shadow-xl mb-8" />
+        
+        <h1 className="text-xl font-black text-slate-900 mb-6 leading-tight uppercase">
+          {product.title}
+        </h1>
+
+        <div className="text-[15px]">
+          {renderContent(product.detailFullDescription || product.description)}
+        </div>
+      </div>
+
+      {/* Кнопка "Прибита" к низу, но выше твоего меню (bottom-24) */}
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] pointer-events-none">
+        <div className="max-w-2xl mx-auto pointer-events-auto">
+          {userPurchasedIds?.includes(String(product.id)) ? (
+            <button className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-bold text-sm uppercase tracking-widest shadow-2xl">
+              МАТЕРИАЛ КУПЛЕН
+            </button>
+          ) : (
+            <button 
+              onClick={() => onCheckout(product)} 
+              className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-sm uppercase tracking-widest shadow-2xl active:scale-95 transition-all"
+            >
+              КУПИТЬ ЗА {product.price} ₽
+            </button>
+          )}
         </div>
       </div>
     </div>
