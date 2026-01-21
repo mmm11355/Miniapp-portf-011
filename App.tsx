@@ -101,6 +101,7 @@ const Linkify = ({ text }: { text: string }) => {
       </div>
 
     {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+     {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
       <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
         <div className="max-w-2xl mx-auto">
           {hasAccess ? (
@@ -111,7 +112,7 @@ const Linkify = ({ text }: { text: string }) => {
                   onNavigate('account'); // Переходим в личный кабинет
                 }
               }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
               className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle size={18} />
@@ -287,7 +288,7 @@ const App: React.FC = () => {
   // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
-  const purchasedProducts = products.filter(p => {
+  const purchasedProducts = products.filter(p => userPurchasedIds.map(id => String(id).toLowerCase().trim()).includes(String(p.id).toLowerCase().trim()));
   const cleanProductId = String(p.id || '').trim().toLowerCase();
   return userPurchasedIds.some(uId => String(uId || '').trim().toLowerCase() === cleanProductId);
 });
