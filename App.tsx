@@ -100,38 +100,43 @@ const Linkify = ({ text }: { text: string }) => {
         </div>
       </div>
 
-      {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+    {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
       <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
         <div className="max-w-2xl mx-auto">
-        {hasAccess ? (
-  <button
-    onClick={() => {
-      onClose(); // Закрываем карточку
-      // Находим способ переключить вкладку. 
-      // Если функция handleNavigate доступна, используем её:
-      if (typeof onNavigate === 'function') {
-        onNavigate('account'); 
-      } else {
-        // Если нет, вы можете попробовать найти глобальный переключатель,
-        // но лучше передать handleNavigate в пропсы этого компонента.
-        alert('Перейдите в раздел МОИ вручную');
-      }
-    }}
-    style={{ backgroundColor: product.detailButtonColor || '#7ea6b1' }}
-    className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-  >
-    <CheckCircle size={18} />
-    ОТКРЫТЬ В КАБИНЕТЕ
-  </button>
-) : (
-  // ... тут ваш старый код кнопки покупки ...
-)}
-          
+          {hasAccess ? (
+            <button 
+              onClick={() => {
+                onClose(); // Закрываем карточку товара
+                if (typeof onNavigate === 'function') {
+                  onNavigate('account'); // Переходим в личный кабинет
+                }
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              ОТКРЫТЬ В КАБИНЕТЕ
+            </button>
+          ) : (
+            <button 
+              onClick={() => {
+                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
+                else onCheckout(product);
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
+            >
+              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
+              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
+          
+    
 
 // Вспомогательный компонент для отображения картинок/видео
 const MediaRenderer = ({ url, className }: { url: string; className?: string }) => {
