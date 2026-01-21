@@ -119,6 +119,20 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
   );
 };
 
+// Вспомогательный компонент для отображения картинок/видео
+const MediaRenderer = ({ url, className }: { url: string; className?: string }) => {
+  if (!url) return <div className={className + " bg-slate-100 flex items-center justify-center text-slate-400 text-[10px]"}>НЕТ ФОТО</div>;
+  
+  const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('vimeo.com') || url.includes('youtube.com');
+  
+  if (isVideo) {
+    return (
+      <video src={url} className={className} controls playsInline muted />
+    );
+  }
+  return <img src={url} className={className} alt="media" loading="lazy" />;
+};
+
 const App: React.FC = () => {
 // --- ВОТ ЭТО ВСТАВЛЯЕМ СРАЗУ ПОСЛЕ const App = () => { ---
 
