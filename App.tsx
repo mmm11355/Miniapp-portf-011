@@ -180,22 +180,34 @@ const App: React.FC = () => {
     } catch (e) { console.error("Ошибка загрузки"); }
   }, []);
 
-  // 4. ФУНКЦИЯ ДОСТУПОВ (Для личного кабинета)
+ // 4. ФУНКЦИЯ ДОСТУПОВ (ИСПРАВЛЕННАЯ)
   const fetchUserAccess = useCallback(async (uid?: string) => {
     const id = uid || userIdentifier;
-    if (!WEBHOOK_URL || !id) return;
+    // Если нет ссылки или ID гостя — ничего не делаем
+    if (!WEBHOOK_URL || !id || id === 'guest') return;
+    
     setIsRefreshingAccess(true);
     try {
-      const res = await fetch(`${WEBHOOK_URL}?action=getUserAccess&userIds=${encodeURIComponent(id)}`);
+      const res = await fetch(`${WEBHOOK_URL}?action=getUserAccess&userIds=${encodeURIComponent(id)}&_t=${Date.now()}`);
       const data = await res.json();
-      if (data.status === 'success' || data.ok) {
-        setUserPurchasedIds((data.access || data.purchasedIds || []).map((i: any) => String(i).trim().toLowerCase()));
+      
+      // Проверяем все возможные варианты ответа от скрипта (status или ok)
+      if (data.status === 'success' || data.ok || data.access) {
+        // Берем массив из access или purchasedIds
+        const rawAccess = data.access || data.purchasedIds || [];
+        const accessArray = Array.isArray(rawAccess) ? rawAccess : [];
+        
+        setUserPurchasedIds(accessArray.map((i: any) => String(i).trim().toLowerCase()));
       }
-    } catch (e) { console.error("Ошибка доступов"); }
-    finally { setIsRefreshingAccess(false); }
-  }, [userIdentifier]);
+    } catch (e) { 
+      console.error("Ошибка доступов:", e); 
+    } finally { 
+      setIsRefreshingAccess(false); 
+    }
+    // ДОБАВИЛИ WEBHOOK_URL В ЗАВИСИМОСТИ НИЖЕ
+  }, [userIdentifier, WEBHOOK_URL]);
 
-  // 5. НАВИГАЦИЯ + СТАТИСТИКА (Чтобы кнопки работали и визиты писались)
+  // 5. НАВИГАЦИЯ + СТАТИСТИКА (ИСПРАВЛЕННЫЙ ВАРИАНТ)
   const handleNavigate = useCallback((newView: string, product: any = null) => {
     setView(newView);
     if (product) setActiveDetailProduct(product);
@@ -205,10 +217,15 @@ const App: React.FC = () => {
     // Пишем визит в таблицу
     const info = getDetailedTgUser();
     if (WEBHOOK_URL && !WEBHOOK_URL.includes('ВАШ_ID')) {
-      fetch(`${WEBHOOK_URL}?action=logVisit&userId=${encodeURIComponent(info.full_info)}&username=${encodeURIComponent(info.username || 'guest')}&page=${encodeURIComponent(newView)}`, { mode: 'no-cors' });
+      // Добавили параметры для точной записи и защиты от кеша
+      const url = `${WEBHOOK_URL}?action=logVisit&userId=${encodeURIComponent(info.full_info)}&username=${encodeURIComponent(info.username || 'guest')}&page=${encodeURIComponent(newView)}&_t=${Date.now()}`;
+      
+      fetch(url, { mode: 'no-cors' })
+        .catch(e => console.error("Ошибка записи статистики:", e));
     }
+    
     window.scrollTo(0, 0);
-  }, []);
+  }, [WEBHOOK_URL]); // Добавили зависимость, чтобы функция видела ссылку
 
   // 6. ЗАПУСК ПРИ ОТКРЫТИИ
   useLayoutEffect(() => {
