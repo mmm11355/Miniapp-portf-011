@@ -13,6 +13,7 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 
   const renderContent = (text: string) => {
     if (!text) return null;
+    // Регулярка для видео, картинок и ссылок
     const parts = text.split(/(\[\[(?:video|image):.*?\]\]|https?:\/\/[^\s]+)/g);
     
     return parts.map((part, index) => {
@@ -53,12 +54,12 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
     });
   };
 
-  // Проверка доступа: приводим ID к строке для надежности
-  const hasAccess = userPurchasedIds?.map(String).includes(String(product.id));
+  // ПРОВЕРКА ДОСТУПА: сравниваем ID как строки
+  const hasAccess = userPurchasedIds?.map(String).includes(String(product.id)) || product.isFree === true;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-40">
-      {/* ВЕРХНЯЯ ПАНЕЛЬ С КНОПКОЙ НАЗАД */}
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44">
+      {/* ШАПКА СО СТРЕЛКОЙ */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
         <button onClick={onClose} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors">
           <span className="text-2xl leading-none">←</span>
@@ -84,15 +85,16 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
         </div>
       </div>
 
-      {/* КНОПКА ПРИБИТА К НИЗУ (ВЫШЕ МЕНЮ) */}
-      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110]">
+      {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
         <div className="max-w-2xl mx-auto">
           {hasAccess ? (
             <button 
               onClick={() => {
+                // Если куплено — открываем secretContent
                 const link = product.secretContent || product.externalLink;
                 if (link) window.open(link, '_blank');
-                else alert('Материал будет доступен в ближайшее время');
+                else alert('Материал скоро будет загружен');
               }}
               className="w-full py-5 rounded-[10px] bg-emerald-500 text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all"
             >
@@ -176,51 +178,56 @@ useEffect(() => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
- const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
-    // Используем переданные ID или те, что уже есть в приложении
-    const currentId = userId || userIdentifier;
-    const currentName = username || (typeof userInfo !== 'undefined' ? userInfo?.username : '');
+ const fetchUserAccess = useCallback(async (userId, username) => {
+  // Используем переданные ID или те, что уже есть в приложении
+  const currentId = userId || userIdentifier;
+  const currentName = username || (userInfo?.username || "");
 
-    if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') {
-      console.log("Prop check failed:", { url: !!telegramConfig.googleSheetWebhook, id: currentId });
-      return;
-    }
-    
-    setIsRefreshingAccess(true);
-    const variants = new Set<string>();
-    
-    variants.add(currentId.toString().toLowerCase().trim());
-    if (currentName) {
-      variants.add(currentName.toLowerCase().trim());
-      variants.add(currentName.replace('@', '').toLowerCase().trim());
-    }
-    
-    const idsParam = Array.from(variants).join(',');
-    // Добавляем к URL параметр action и userIds
-    const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
+  if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') {
+    console.log("Проверка провалена (Prop check failed):", { url: !!telegramConfig.googleSheetWebhook, id: currentId });
+    return;
+  }
+  
+  setIsRefreshingAccess(true);
+  
+  // Собираем все варианты написания ника и ID, чтобы точно найти пользователя в таблице
+  const variants = new Set();
+  variants.add(currentId.toString().toLowerCase().trim());
+  if (currentName) {
+    variants.add(currentName.toLowerCase().trim());
+    variants.add(currentName.replace('@', '').toLowerCase().trim());
+  }
+  
+  const idsParam = Array.from(variants).join(',');
+  // Формируем URL. Важно: action=getUserAccess
+  const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(idsParam)}&_t=${Date.now()}`;
 
-    try {
-      console.log("Запрос к таблице:", url);
-      const res = await fetch(url);
-      const data = await res.json();
+  try {
+    console.log("Запрос доступов к таблице:", url);
+    const res = await fetch(url);
+    const data = await res.json();
 
-      if (data.status === 'success' && Array.isArray(data.access)) {
-        const cleanAccess = data.access.map((item: any) => String(item).trim().toLowerCase());
-        console.log("Получены доступы из таблицы:", cleanAccess);
+    // Проверяем формат ответа (поддерживаем и 'success', и 'ok')
+    if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
+      const accessList = data.access || data.purchasedIds;
+      
+      if (Array.isArray(accessList)) {
+        const cleanAccess = accessList.map(item => String(item).trim().toLowerCase());
+        console.log("✅ Доступы успешно получены:", cleanAccess);
         
-        // Устанавливаем доступы
+        // ОБНОВЛЯЕМ СОСТОЯНИЕ — после этого кнопка в лонгриде станет зеленой
         setUserPurchasedIds(cleanAccess);
-      } else {
-        console.log("Таблица вернула пустой доступ или ошибку:", data);
       }
-    } catch (e) {
-      console.error("Ошибка сети при получении доступов:", e);
-    } finally {
-      setIsRefreshingAccess(false);
+    } else {
+      console.log("⚠️ Таблица не нашла доступов для этих ID:", idsParam, data);
+      setUserPurchasedIds([]); // Очищаем, если ничего не найдено
     }
-  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
-
-const syncWithCloud = useCallback(async () => {
+  } catch (e) {
+    console.error("❌ Ошибка сети при получении доступов:", e);
+  } finally {
+    setIsRefreshingAccess(false);
+  }
+}, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
   // ... дальше твой код
 
  
@@ -309,13 +316,10 @@ const syncWithCloud = useCallback(async () => {
 const handleNavigate = (newView, product = null) => {
   console.log("Нажата кнопка:", newView, "Товар:", product);
 
-  // Сбрасываем старое
   setCheckoutProduct(null);
   setActiveSecretProduct(null);
 
-  // Если пришел объект товара, проверяем его структуру
   if (product && (product.id || product.title)) {
-    console.log("Устанавливаем активный товар:", product.id);
     setActiveDetailProduct(product);
   } else {
     setActiveDetailProduct(null);
@@ -323,17 +327,22 @@ const handleNavigate = (newView, product = null) => {
 
   if (newView) setView(newView);
 
-  // --- ДОБАВЛЯЕМ ЛОГИКУ СОХРАНЕНИЯ В ТАБЛИЦУ ---
-  // Эта строка отправит в Google Таблицу твой текущий раздел
+  // --- ВОТ ЭТОТ БЛОК ОТВЕЧАЕТ ЗА СТАТИСТИКУ ---
   const username = userInfo?.username || userInfo?.first_name || "guest";
+  
+  // Определяем, что именно писать в 5-ю колонку
+  let pageName = newView;
+  if (product) pageName = `view_${newView}_${product.id}`; 
+
+  // Вызываем сохранение (убедитесь, что функция saveSessionToSheet определена в коде выше)
   if (typeof saveSessionToSheet === 'function') {
-     saveSessionToSheet(userIdentifier, username, newView);
+    saveSessionToSheet(userIdentifier, username, pageName);
   }
   // --------------------------------------------
 
   if (newView === 'account') {
-    const username = userInfo?.username || userInfo?.first_name || "";
-    fetchUserAccess(userIdentifier, username);
+    const currentUsername = userInfo?.username || userInfo?.first_name || "";
+    fetchUserAccess(userIdentifier, currentUsername);
   }
 };
 
