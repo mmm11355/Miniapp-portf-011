@@ -214,18 +214,32 @@ const App: React.FC = () => {
     else setActiveDetailProduct(null);
     setCheckoutProduct(null);
     
-    // Пишем визит в таблицу
-    const info = getDetailedTgUser();
-    if (WEBHOOK_URL && !WEBHOOK_URL.includes('ВАШ_ID')) {
-      // Добавили параметры для точной записи и защиты от кеша
-      const url = `${WEBHOOK_URL}?action=logVisit&userId=${encodeURIComponent(info.full_info)}&username=${encodeURIComponent(info.username || 'guest')}&page=${encodeURIComponent(newView)}&_t=${Date.now()}`;
+    // ОТПРАВЛЯЕМ СТАТИСТИКУ КАК POST (под твой скрипт)
+    if (WEBHOOK_URL) {
+      const info = getDetailedTgUser();
       
-      fetch(url, { mode: 'no-cors' })
-        .catch(e => console.error("Ошибка записи статистики:", e));
+      // Формируем данные ровно под твой doPost
+      const payload = {
+        action: 'logSession',
+        type: 'session',
+        tg_id: info.full_info || 'guest', // Скрипт ждет tg_id
+        username: info.username || 'guest',
+        path: newView, // Скрипт ждет path вместо page
+        utmSource: 'telegram_bot'
+      };
+
+      // Отправляем через POST
+      fetch(WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Это важно для Google Script
+        cache: 'no-cache',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(e => console.error("Ошибка записи сессии:", e));
     }
-    
+
     window.scrollTo(0, 0);
-  }, [WEBHOOK_URL]); // Добавили зависимость, чтобы функция видела ссылку
+  }, [WEBHOOK_URL]);
 
   // 6. ЗАПУСК ПРИ ОТКРЫТИИ
   useLayoutEffect(() => {
