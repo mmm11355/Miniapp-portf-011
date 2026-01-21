@@ -229,7 +229,7 @@ useEffect(() => {
   const syncWithCloud = useCallback(async () => {
 
  
-  // --- НАЧАЛО БЛОКА ЗАГРУЗКИ ---
+  // --- НАЧАЛО БЛОКА ---
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
@@ -273,9 +273,9 @@ useEffect(() => {
         }
       }
     } catch (e) {
-      console.error("Ошибка при загрузке каталога:", e);
+      console.error("Error fetching catalog:", e);
     }
-  }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
+  }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]); // Закрыли useCallback здесь
 
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -297,7 +297,7 @@ useEffect(() => {
     if (typeof saveSessionToSheet === 'function') {
       saveSessionToSheet(fullUserInfo, info.username || 'guest', 'home');
     }
-  }, [fetchProducts]); 
+  }, [fetchProducts]); // Закрыли useLayoutEffect здесь
   // --- КОНЕЦ БЛОКА ---
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
