@@ -106,30 +106,25 @@ const Linkify = ({ text }: { text: string }) => {
         {hasAccess ? (
   <button
     onClick={() => {
-      // 1. Закрываем текущее окно товара
-      onClose(); 
-      // 2. Переключаем вкладку приложения на Личный кабинет
-      // (Проверь, чтобы функция setView была доступна в этом компоненте)
-      if (typeof setView === 'function') setView('account');
+      onClose(); // Закрываем карточку
+      // Находим способ переключить вкладку. 
+      // Если функция handleNavigate доступна, используем её:
+      if (typeof onNavigate === 'function') {
+        onNavigate('account'); 
+      } else {
+        // Если нет, вы можете попробовать найти глобальный переключатель,
+        // но лучше передать handleNavigate в пропсы этого компонента.
+        alert('Перейдите в раздел МОИ вручную');
+      }
     }}
-    style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+    style={{ backgroundColor: product.detailButtonColor || '#7ea6b1' }}
     className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
   >
     <CheckCircle size={18} />
     ОТКРЫТЬ В КАБИНЕТЕ
   </button>
 ) : (
-  <button
-    onClick={() => {
-      if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
-      else onCheckout(product);
-    }}
-    style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
-    className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
-  >
-    {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'}
-    {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
-  </button>
+  // ... тут ваш старый код кнопки покупки ...
 )}
           
         </div>
@@ -287,7 +282,10 @@ const App: React.FC = () => {
   // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
-  const purchasedProducts = products.filter(p => userPurchasedIds.includes(String(p.id).toLowerCase()));
+  const purchasedProducts = products.filter(p => {
+  const cleanProductId = String(p.id || '').trim().toLowerCase();
+  return userPurchasedIds.some(uId => String(uId || '').trim().toLowerCase() === cleanProductId);
+});
   const syncWithCloud = () => {};
 
   // --- ДАЛЬШЕ ИДЕТ ТВОЙ return ( И ДИЗАЙН — ИХ НЕ ТРОГАЙ! ---
