@@ -8,7 +8,7 @@ import {
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
 } from 'lucide-react';
 
-const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) => {
+const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds, onNavigate }: any) => {
   if (!product) return null;
 
 const Linkify = ({ text }: { text: string }) => {
