@@ -120,26 +120,39 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
- // --- ПОЛНЫЙ БЛОК СО ВСЕМИ ПЕРЕМЕННЫМИ ---
+ // --- ПОЛНЫЙ МОНОЛИТНЫЙ БЛОК ПЕРЕМЕННЫХ И ФУНКЦИЙ ---
   const [activeTab, setActiveTab] = useState('shop');
   const [view, setView] = useState('list');
-  const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
-  const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null); // ВОТ ОНА!
   const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
   const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
+  
+  // Переменные для работы с товарами и оплатой
+  const [activeDetailProduct, setActiveDetailProduct] = useState<any>(null);
+  const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
+  const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
+  
+  // Дополнительные переменные (на всякий случай, если есть поиск или промокоды)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [isPromoValid, setIsPromoValid] = useState(false);
+
   const activeSessionId = useRef<string | null>(null);
 
+  // Конфиги
   const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
   const userInfo = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
 
-  // Функция навигации
+  // 1. Функция навигации
   const handleNavigate = useCallback((page: string) => {
     setActiveTab(page);
     setView('list');
     setCheckoutProduct(null);
+    setActiveDetailProduct(null);
     setPaymentIframeUrl(null);
+    
+    // Сохраняем переход в статистику
     const info = getDetailedTgUser();
     const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
     if (typeof saveFunc === 'function') {
@@ -148,10 +161,11 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [userIdentifier]);
 
-  // Проверка доступов
+  // 2. Функция проверки доступов
   const fetchUserAccess = useCallback(async (userId?: string) => {
     const currentId = userId || userIdentifier;
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
+    
     setIsRefreshingAccess(true);
     try {
       const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(currentId)}&_t=${Date.now()}`;
@@ -161,37 +175,67 @@ const App: React.FC = () => {
         const list = data.access || data.purchasedIds || [];
         setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
       }
-    } catch (e) { console.error("Access error:", e); }
-    finally { setIsRefreshingAccess(false); }
+    } catch (e) {
+      console.error("Access error:", e);
+    } finally {
+      setIsRefreshingAccess(false);
+    }
   }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
-  // Загрузка товаров
+  // 3. Функция загрузки каталога
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
       const rawData = await response.json();
       if (Array.isArray(rawData)) {
-        const sanitized = rawData.filter(i => i.title || i.Title).map((p, index) => ({
-          ...p,
-          id: p.id || `row-${index + 2}`,
-          section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
-        }));
+        const sanitized = rawData.filter(i => i.title || i.Title).map((p, index) => {
+          const sectionVal = String(p.section || p.Section || '').toLowerCase();
+          return {
+            ...p,
+            id: p.id || p.Id || `row-${index + 2}`,
+            title: p.title || p.Title || 'Без названия',
+            section: ['bonus', 'бонусы'].includes(sectionVal) ? 'bonus' : (['portfolio', 'кейсы'].includes(sectionVal) ? 'portfolio' : 'shop'),
+          };
+        });
         setProducts(sanitized);
-        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess();
+        if (userIdentifier && userIdentifier !== 'guest') {
+          fetchUserAccess(userIdentifier);
+        }
       }
-    } catch (e) { console.error("Products error:", e); }
+    } catch (e) {
+      console.error("Products error:", e);
+    }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier]);
 
+  // 4. Эффект запуска
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+    
     const info = getDetailedTgUser();
-    setUserIdentifier(info.full_info); 
+    setUserIdentifier(info.full_info);
+    
+    // Старт сессии
+    const analytics = (window as any).analyticsService;
+    if (analytics?.startSession) {
+      analytics.startSession().then((sid: string) => {
+        activeSessionId.current = sid;
+      });
+    }
+
     fetchProducts();
   }, [fetchProducts]);
 
+  // Заглушка для совместимости
   const syncWithCloud = useCallback(async () => {}, []);
+  const handleProductClick = useCallback((product: any) => {
+    setActiveDetailProduct(product);
+  }, []);
+
   // --- КОНЕЦ БЛОКА ---
 
   return (
