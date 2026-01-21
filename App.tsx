@@ -323,6 +323,14 @@ const handleNavigate = (newView, product = null) => {
 
   if (newView) setView(newView);
 
+  // --- ДОБАВЛЯЕМ ЛОГИКУ СОХРАНЕНИЯ В ТАБЛИЦУ ---
+  // Эта строка отправит в Google Таблицу твой текущий раздел
+  const username = userInfo?.username || userInfo?.first_name || "guest";
+  if (typeof saveSessionToSheet === 'function') {
+     saveSessionToSheet(userIdentifier, username, newView);
+  }
+  // --------------------------------------------
+
   if (newView === 'account') {
     const username = userInfo?.username || userInfo?.first_name || "";
     fetchUserAccess(userIdentifier, username);
