@@ -157,9 +157,19 @@ const MediaRenderer = ({ url, className }: { url: string; className?: string }) 
 const App: React.FC = () => {
 // --- ВОТ ЭТО ВСТАВЛЯЕМ СРАЗУ ПОСЛЕ const App = () => { ---
 
-  // 1. ТВОЯ ССЫЛКА НА ГУГЛ-СКРИПТ (Вставь её сюда!)
-  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec'; 
+ 
+// 1. ТВОИ НАСТРОЙКИ ДЛЯ БОТА И ГУГЛ-ТАБЛИЦЫ
+  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec';
+  const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
+  const CHAT_ID = '-1002095569247';
 
+  // 2. ПОДКЛЮЧАЕМ СЕРВИС УВЕДОМЛЕНИЙ
+  const [analyticsService] = useState(() => new AnalyticsService({
+    botToken: BOT_TOKEN,
+    chatId: CHAT_ID,
+    googleSheetWebhook: WEBHOOK_URL
+  }));
+  
   // 2. ВСЕ ТВОИ ПЕРЕМЕННЫЕ (Для вкладок, магазина и профиля)
   const [view, setView] = useState('home');
   const [portfolioTab, setPortfolioTab] = useState('cases');
