@@ -120,60 +120,62 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
-// 1. СОСТОЯНИЯ ЭКРАНОВ (Твоя оригинальная логика)
-  const [view, setView] = useState('home'); // Стартовый экран
-  const [portfolioTab, setPortfolioTab] = useState('cases'); // Переключатель в портфолио
-  const [filter, setFilter] = useState('All'); // Фильтр в магазине
+// 1. ПЕРЕМЕННЫЕ СОСТОЯНИЯ (Твой интерфейс)
+  const [view, setView] = useState('home'); // home, shop, portfolio, account, contact
+  const [portfolioTab, setPortfolioTab] = useState('cases'); // cases / bonuses
+  const [filter, setFilter] = useState('All'); // Категории в магазине
 
-  // 2. ДАННЫЕ И ДОСТУПЫ
+  // 2. ДАННЫЕ
   const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
   const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
 
-  // 3. ПЕРЕМЕННЫЕ ДЛЯ МОДАЛОК И ОПЛАТЫ (Чтобы интерфейс не "падал")
+  // 3. ПЕРЕМЕННЫЕ ДЛЯ МОДАЛОК И ЗАКАЗА
   const [activeDetailProduct, setActiveDetailProduct] = useState<any>(null);
   const [activeSecretProduct, setActiveSecretProduct] = useState<any>(null);
   const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
-
-  // 4. ДАННЫЕ КЛИЕНТА ДЛЯ ОФОРМЛЕНИЯ
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [agreedToMarketing, setAgreedToMarketing] = useState(false);
 
-  // 5. АДМИНКА
+  // 4. АДМИНКА
   const [password, setPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const ADMIN_PASSWORD = "123";
+  const activeSessionId = useRef<string | null>(null);
 
-  // КОНФИГИ
   const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
 
-  // ЛОГИКА ФИЛЬТРАЦИИ (Для твоего магазина)
-  const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
-  const filteredProducts = products.filter(p => {
-    if (p.section !== 'shop') return false;
-    return filter === 'All' || p.category === filter;
-  });
-  const purchasedProducts = products.filter(p => userPurchasedIds.includes(String(p.id).toLowerCase()));
+  // --- ЛОГИКА ТАБЛИЦЫ И СТАТИСТИКИ ---
 
-  // ФУНКЦИЯ НАВИГАЦИИ (Теперь точно под твой Layout)
+  // Функция отправки визита в таблицу
+  const logVisit = useCallback(async (page: string) => {
+    if (!telegramConfig.googleSheetWebhook || !userIdentifier || userIdentifier === 'guest') return;
+    try {
+      const info = getDetailedTgUser();
+      const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
+      if (typeof saveFunc === 'function') {
+        await saveFunc(info.full_info, info.username || 'guest', page);
+      }
+    } catch (e) { console.error("Visit log error", e); }
+  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
+
+  // Навигация
   const handleNavigate = useCallback((newView: string, product: any = null) => {
     setView(newView);
-    if (product) {
-      setActiveDetailProduct(product);
-    } else {
-      setActiveDetailProduct(null);
-    }
+    if (product) setActiveDetailProduct(product);
+    else setActiveDetailProduct(null);
+    
     setCheckoutProduct(null);
     setPaymentIframeUrl(null);
+    logVisit(newView); // ОТПРАВЛЯЕМ ВИЗИТ ПРИ КАЖДОМ КЛИКЕ
     window.scrollTo(0, 0);
-  }, []);
+  }, [logVisit]);
 
-  // ЗАГРУЗКА ДАННЫХ
+  // Загрузка доступов
   const fetchUserAccess = useCallback(async (uid?: string) => {
     const id = uid || userIdentifier;
     if (!telegramConfig.googleSheetWebhook || !id || id === 'guest') return;
@@ -188,29 +190,51 @@ const App: React.FC = () => {
     finally { setIsRefreshingAccess(false); }
   }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
+  // Загрузка товаров
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        setProducts(data.map((p, i) => ({
+        const sanitized = data.map((p, i) => ({
           ...p,
           id: p.id || `row-${i+2}`,
-          section: String(p.section || '').toLowerCase().trim()
-        })));
+          section: String(p.section || p.Section || '').toLowerCase().trim()
+        }));
+        setProducts(sanitized);
         if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess();
       }
     } catch (e) { console.error("Products error"); }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier]);
 
+  // Запуск при старте
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     const info = getDetailedTgUser();
-    setUserIdentifier(info.full_info);
+    const fullId = info.full_info;
+    setUserIdentifier(fullId);
+    
+    // Сразу грузим товары и логируем первый вход
     fetchProducts();
-  }, [fetchProducts]);
+    
+    const analytics = (window as any).analyticsService;
+    if (analytics?.startSession) {
+      analytics.startSession().then((sid: string) => { activeSessionId.current = sid; });
+    }
+    
+    // Логируем стартовую страницу
+    logVisit('home');
+  }, [fetchProducts, logVisit]);
+
+  // Вычисляемые данные для твоего дизайна
+  const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
+  const filteredProducts = products.filter(p => {
+    if (p.section !== 'shop') return false;
+    return filter === 'All' || p.category === filter;
+  });
+  const purchasedProducts = products.filter(p => userPurchasedIds.includes(String(p.id).toLowerCase()));
 
   const syncWithCloud = () => {};
 
