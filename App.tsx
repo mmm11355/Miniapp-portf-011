@@ -120,10 +120,11 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
- // --- НАЧАЛО ПОЛНОГО БЛОКА ---
+ // --- ПОЛНЫЙ БЛОК СО ВСЕМИ ПЕРЕМЕННЫМИ ---
   const [activeTab, setActiveTab] = useState('shop');
   const [view, setView] = useState('list');
-  const [checkoutProduct, setCheckoutProduct] = useState<any>(null); // ВОТ ЭТО МЫ ПОТЕРЯЛИ
+  const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
+  const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null); // ВОТ ОНА!
   const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
@@ -133,11 +134,12 @@ const App: React.FC = () => {
   const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
   const userInfo = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
 
-  // Функция переходов
+  // Функция навигации
   const handleNavigate = useCallback((page: string) => {
     setActiveTab(page);
     setView('list');
-    setCheckoutProduct(null); // Сбрасываем выбранный товар при переходе
+    setCheckoutProduct(null);
+    setPaymentIframeUrl(null);
     const info = getDetailedTgUser();
     const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
     if (typeof saveFunc === 'function') {
@@ -146,7 +148,7 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [userIdentifier]);
 
-  // Загрузка доступов
+  // Проверка доступов
   const fetchUserAccess = useCallback(async (userId?: string) => {
     const currentId = userId || userIdentifier;
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
@@ -190,7 +192,7 @@ const App: React.FC = () => {
   }, [fetchProducts]);
 
   const syncWithCloud = useCallback(async () => {}, []);
-  // --- КОНЕЦ ПОЛНОГО БЛОКА ---
+  // --- КОНЕЦ БЛОКА ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
