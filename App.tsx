@@ -541,7 +541,46 @@ const App: React.FC = () => {
   />
 )}
 
-     
+   {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
+{activeSecretProduct && (
+  <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto page-transition">
+    <div className="p-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-50">
+      <button onClick={() => setActiveSecretProduct(null)} className="p-2 bg-slate-100 rounded-full text-slate-600 active:scale-90 transition-all">
+        <ChevronLeft size={24} />
+      </button>
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ваш доступ</span>
+      <div className="w-10" />
+    </div>
+
+    <div className="p-6 space-y-8">
+      <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
+      
+      <div className="space-y-2">
+        <h2 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tighter">
+          {activeSecretProduct.title}
+        </h2>
+        <div className="flex items-center gap-2 text-indigo-500 font-bold text-[10px] uppercase tracking-widest">
+          <ShieldCheck size={14} /> Материал разблокирован
+        </div>
+      </div>
+
+      {/* САМОЕ ГЛАВНОЕ: Вывод данных из колонки secretContent (или U в таблице) */}
+      <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shadow-inner">
+        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Инструкции и ссылки:</h4>
+        <div className="text-slate-700 text-[14px] leading-relaxed whitespace-pre-wrap font-medium">
+          {activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится..."}
+        </div>
+      </div>
+
+      <button 
+        onClick={() => setActiveSecretProduct(null)}
+        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+      >
+        Вернуться назад
+      </button>
+    </div>
+  </div>
+)}  
   
     
     </Layout>
