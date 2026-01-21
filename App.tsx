@@ -164,7 +164,7 @@ class AnalyticsService {
     console.log("Отправка заказа в TG...", orderData);
     try {
       // Отправка в Телеграм
-      const message = `🛍 Новый заказ: ${orderData.productTitle}\n💰 Сумма: ${orderData.price}₽\n👤 Клиент: ${orderData.customerName}\n📧 Email: ${orderData.customerEmail}\n🆔 TG ID: ${orderData.tg_id}`;
+     const message = `🛍 Новый заказ: ${orderData.productTitle}\n💰 Сумма: ${orderData.price}₽\n👤 Клиент: ${orderData.customerName}\n📧 Email: ${orderData.customerEmail}\n🆔 TG ID: ${orderData.tg_id || 'не определен'}\n🔗 Ник: @${orderData.username || 'unknown'}`;
       await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,6 +184,18 @@ class AnalyticsService {
     }
   }
 }
+
+const getDetailedTgUser = () => {
+  const tg = (window as any).Telegram?.WebApp;
+  if (tg?.initDataUnsafe?.user) {
+    return {
+      tg_id: String(tg.initDataUnsafe.user.id),
+      username: tg.initDataUnsafe.user.username || 'не указан',
+      first_name: tg.initDataUnsafe.user.first_name || ''
+    };
+  }
+  return { tg_id: 'unknown', username: 'direct_web' };
+};
 
 // --- ТЕПЕРЬ ТВОЙ APP ---
 const App: React.FC = () => {
