@@ -120,7 +120,12 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
-// --- ВОССТАНОВЛЕННЫЙ ПОЛНЫЙ БЛОК ЛОГИКИ ---
+// --- ВОТ ЭТО ВСТАВЛЯЕМ СРАЗУ ПОСЛЕ const App = () => { ---
+
+  // 1. ТВОЯ ССЫЛКА НА ГУГЛ-СКРИПТ (Вставь её сюда!)
+  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec'; 
+
+  // 2. ВСЕ ТВОИ ПЕРЕМЕННЫЕ (Для вкладок, магазина и профиля)
   const [view, setView] = useState('home');
   const [portfolioTab, setPortfolioTab] = useState('cases');
   const [filter, setFilter] = useState('All');
@@ -128,109 +133,86 @@ const App: React.FC = () => {
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
   const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
-  
   const [activeDetailProduct, setActiveDetailProduct] = useState<any>(null);
   const [activeSecretProduct, setActiveSecretProduct] = useState<any>(null);
   const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
-
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [agreedToMarketing, setAgreedToMarketing] = useState(false);
-
   const [password, setPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const ADMIN_PASSWORD = "123"; 
-  const activeSessionId = useRef<string | null>(null);
 
-  const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
-
-  // 1. ФУНКЦИЯ ЗАГРУЗКИ (С поддержкой твоих полей Title/Section)
+  // 3. ФУНКЦИЯ ЗАГРУЗКИ (Чтобы появились товары и кейсы)
   const fetchProducts = useCallback(async () => {
-    if (!telegramConfig.googleSheetWebhook) return;
+    if (!WEBHOOK_URL || WEBHOOK_URL.includes('ВАШ_ID')) return;
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`);
+      const res = await fetch(`${WEBHOOK_URL}?action=getProducts&sheet=Catalog&_t=${Date.now()}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        const sanitized = data.map((p, i) => ({
+        setProducts(data.map((p, i) => ({
           ...p,
           id: p.id || p.Id || `row-${i+2}`,
-          section: String(p.section || p.Section || '').toLowerCase().trim(), // Читаем и с большой, и с маленькой буквы
+          section: String(p.section || p.Section || '').toLowerCase().trim(),
           title: p.title || p.Title || '',
           category: p.category || p.Category || ''
-        }));
-        setProducts(sanitized);
-        
+        })));
+        // Сразу проверяем доступы пользователя
         const info = getDetailedTgUser();
         if (info.full_info) fetchUserAccess(info.full_info);
       }
     } catch (e) { console.error("Ошибка загрузки"); }
-  }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
+  }, []);
 
-  // 2. ФУНКЦИЯ ДОСТУПОВ
+  // 4. ФУНКЦИЯ ДОСТУПОВ (Для личного кабинета)
   const fetchUserAccess = useCallback(async (uid?: string) => {
     const id = uid || userIdentifier;
-    if (!telegramConfig.googleSheetWebhook || !id) return;
+    if (!WEBHOOK_URL || !id) return;
     setIsRefreshingAccess(true);
     try {
-      const res = await fetch(`${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(id)}`);
+      const res = await fetch(`${WEBHOOK_URL}?action=getUserAccess&userIds=${encodeURIComponent(id)}`);
       const data = await res.json();
       if (data.status === 'success' || data.ok) {
         setUserPurchasedIds((data.access || data.purchasedIds || []).map((i: any) => String(i).trim().toLowerCase()));
       }
-    } catch (e) { console.error("Ошибка доступов", e); }
+    } catch (e) { console.error("Ошибка доступов"); }
     finally { setIsRefreshingAccess(false); }
-  }, [telegramConfig.googleSheetWebhook, userIdentifier]);
+  }, [userIdentifier]);
 
-  // 3. НАВИГАЦИЯ + СТАТИСТИКА (Точно как в оригинале)
- const handleNavigate = useCallback((newView: string, product: any = null) => {
-    setView(newView); // Возвращаем управление через view
-    if (product) {
-      setActiveDetailProduct(product);
-    } else {
-      setActiveDetailProduct(null);
-    }
-    // Твоя статистика (возвращаем как было)
+  // 5. НАВИГАЦИЯ + СТАТИСТИКА (Чтобы кнопки работали и визиты писались)
+  const handleNavigate = useCallback((newView: string, product: any = null) => {
+    setView(newView);
+    if (product) setActiveDetailProduct(product);
+    else setActiveDetailProduct(null);
+    setCheckoutProduct(null);
+    
+    // Пишем визит в таблицу
     const info = getDetailedTgUser();
-    if (analyticsService?.saveSessionToSheet) {
-      analyticsService.saveSessionToSheet(info.full_info, info.username || 'guest', newView);
+    if (WEBHOOK_URL && !WEBHOOK_URL.includes('ВАШ_ID')) {
+      fetch(`${WEBHOOK_URL}?action=logVisit&userId=${encodeURIComponent(info.full_info)}&username=${encodeURIComponent(info.username || 'guest')}&page=${encodeURIComponent(newView)}`, { mode: 'no-cors' });
     }
     window.scrollTo(0, 0);
   }, []);
 
-  // 4. ИНИЦИАЛИЗАЦИЯ
+  // 6. ЗАПУСК ПРИ ОТКРЫТИИ
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      tg.enableClosingConfirmation();
-    }
-    
+    if (tg) { tg.ready(); tg.expand(); }
     const info = getDetailedTgUser();
     setUserIdentifier(info.full_info);
-    
-    // Старт сессии и загрузка
-    const analytics = (window as any).analyticsService;
-    if (analytics?.startSession) {
-      analytics.startSession().then((sid: string) => {
-        activeSessionId.current = sid;
-        // После старта сессии логируем первый вход
-        analytics.saveSessionToSheet(info.full_info, info.username || 'guest', 'home');
-      });
-    }
-
     fetchProducts();
-  }, [fetchProducts]);
+    handleNavigate('home');
+  }, [fetchProducts, handleNavigate]);
 
-  // Данные для твоего дизайна
+  // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
   const purchasedProducts = products.filter(p => userPurchasedIds.includes(String(p.id).toLowerCase()));
   const syncWithCloud = () => {};
-  // --- КОНЕЦ БЛОКА ЛОГИКИ ---
+
+  // --- ДАЛЬШЕ ИДЕТ ТВОЙ return ( И ДИЗАЙН — ИХ НЕ ТРОГАЙ! ---
 
   
   return (
