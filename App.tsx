@@ -9,48 +9,63 @@ import {
 } from 'lucide-react';
 
 const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) => {
+  if (!product) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans">
       <div className="relative min-h-screen pb-32">
         {/* Кнопка Назад */}
-        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-30 px-6 py-4 border-b border-slate-100 flex items-center gap-4">
-          <button onClick={onClose} className="p-2 text-slate-400 text-xl">←</button>
-          <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Описание</span>
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-30 px-6 py-4 border-b border-slate-100 flex items-center gap-4">
+          <button onClick={onClose} className="p-2 text-slate-400 text-2xl hover:text-slate-600 transition-colors">←</button>
+          <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Описание товара</span>
         </div>
 
         <div className="max-w-2xl mx-auto px-6 pt-6 space-y-8">
-          {/* Главное медиа (imageUrl из логов) */}
-          <MediaRenderer 
-            url={product.imageUrl} 
-            type={product.mediaType} 
-            className="w-full aspect-video object-cover rounded-[2.5rem] shadow-2xl" 
-          />
+          {/* Универсальный показ медиа без внешних компонентов */}
+          <div className="w-full aspect-video rounded-[2rem] overflow-hidden shadow-2xl bg-slate-100">
+            {product.imageUrl && product.imageUrl.includes('video') || product.imageUrl && product.imageUrl.includes('rutube') ? (
+               <iframe 
+                 src={product.imageUrl.replace('watch/', 'play/').replace('rutube.ru/video/', 'rutube.ru/play/embed/')} 
+                 className="w-full h-full" 
+                 frameBorder="0" 
+                 allowFullScreen
+               ></iframe>
+            ) : (
+               <img 
+                 src={product.imageUrl} 
+                 alt="" 
+                 className="w-full h-full object-cover"
+                 onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/800x450?text=No+Image'; }}
+               />
+            )}
+          </div>
 
           <div className="space-y-6">
             <h1 className="text-2xl font-black text-slate-900 leading-tight">
               {product.title}
             </h1>
             
-            {/* Твой расширенный текст из таблицы (detailFullDescription) */}
-            <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap">
-              {product.detailFullDescription || product.description}
-            </div>
+            {/* Текст описания */}
+            <div 
+              className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap text-base"
+              dangerouslySetInnerHTML={{ __html: product.detailFullDescription || product.description || 'Описание отсутствует' }}
+            />
           </div>
         </div>
 
-        {/* Кнопка внизу */}
+        {/* Кнопка действия */}
         <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-lg border-t border-slate-100 z-40">
           <div className="max-w-2xl mx-auto">
             {userPurchasedIds?.includes(String(product.id)) ? (
-              <button className="w-full py-5 rounded-[2rem] bg-green-500 text-white font-bold uppercase tracking-widest shadow-lg">
-                МАТЕРИАЛ КУПЛЕН
-              </button>
+              <div className="w-full py-5 rounded-[2rem] bg-emerald-500 text-white font-bold uppercase tracking-widest shadow-lg text-center">
+                У ВАС УЖЕ ЕСТЬ ДОСТУП
+              </div>
             ) : (
               <button 
                 onClick={() => onCheckout(product)} 
-                className="w-full py-5 rounded-[2rem] bg-indigo-600 text-white font-bold uppercase tracking-widest shadow-lg"
+                className="w-full py-5 rounded-[2rem] bg-indigo-600 text-white font-bold uppercase tracking-widest shadow-lg active:scale-95 transition-all"
               >
-                КУПИТЬ ЗА {product.price} ₽
+                КУПИТЬ ЗА {product.price || 0} ₽
               </button>
             )}
           </div>
