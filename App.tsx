@@ -197,20 +197,26 @@ const syncWithCloud = useCallback(async () => {
   const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
   const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
 
- const handleNavigate = (newView: ViewState, product: any = null) => {
-  // Сбрасываем старое, чтобы не было конфликтов
-  setCheckoutProduct(null);
-  setActiveSecretProduct(null);
-  
-  // Ключевой момент: сохраняем выбранный продукт (лонгрид)
-  if (product) {
+ const handleNavigate = (newView, product = null) => {
+  console.log("Нажата кнопка:", newView, "Товар:", product?.id);
+
+  // 1. Смена экрана
+  if (newView) {
+    setView(newView);
+  }
+
+  // 2. Если нажали на товар — открываем лонгрид
+  if (product && typeof product === 'object') {
     setActiveDetailProduct(product);
   } else {
     setActiveDetailProduct(null);
   }
 
-  setView(newView);
+  // 3. Закрываем лишние окна
+  setCheckoutProduct(null);
+  setActiveSecretProduct(null);
 
+  // 4. Обновляем доступы только в ЛК
   if (newView === 'account') {
     const username = userInfo?.username || userInfo?.first_name || "";
     fetchUserAccess(userIdentifier, username);
