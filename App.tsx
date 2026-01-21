@@ -106,18 +106,16 @@ const Linkify = ({ text }: { text: string }) => {
         <div className="max-w-2xl mx-auto">
           {hasAccess ? (
             <button 
-              onClick={() => {
-                onClose(); // Закрываем карточку товара
-                if (typeof onNavigate === 'function') {
-                  onNavigate('account'); // Переходим в личный кабинет
-                }
-              }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
-              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={18} />
-              ОТКРЫТЬ В КАБИНЕТЕ
-            </button>
+  onClick={() => {
+    onClose(); 
+    if (typeof onNavigate === 'function') onNavigate('account');
+  }}
+  style={{ backgroundColor: product.detailButtonColor || '#7ea6b1' }}
+  className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+>
+  <CheckCircle size={18} />
+  ОТКРЫТЬ В КАБИНЕТЕ
+</button>
           ) : (
             <button 
               onClick={() => {
@@ -288,10 +286,7 @@ const App: React.FC = () => {
   // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
-  const purchasedProducts = products.filter(p => userPurchasedIds.map(id => String(id).toLowerCase().trim()).includes(String(p.id).toLowerCase().trim()));
-  const cleanProductId = String(p.id || '').trim().toLowerCase();
-  return userPurchasedIds.some(uId => String(uId || '').trim().toLowerCase() === cleanProductId);
-});
+ const purchasedProducts = products.filter(p => userPurchasedIds.map(id => String(id).toLowerCase().trim()).includes(String(p.id).toLowerCase().trim()));
   const syncWithCloud = () => {};
 
   // --- ДАЛЬШЕ ИДЕТ ТВОЙ return ( И ДИЗАЙН — ИХ НЕ ТРОГАЙ! ---
