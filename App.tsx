@@ -180,37 +180,29 @@ useEffect(() => {
 
  const fetchUserAccess = useCallback(async (userId, username) => {
    
-// --- НАЧАЛО БЛОКА СПАСЕНИЯ ---
-
-  // 1. Создаем функцию проверки доступов
-  const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
+const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
     const currentId = userId || userIdentifier;
     const currentName = username || (userInfo?.username || "");
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
-    
     setIsRefreshingAccess(true);
-    const variants = new Set<string>();
-    variants.add(currentId.toString().toLowerCase().trim());
-    if (currentName) {
-      variants.add(currentName.toLowerCase().trim());
-      variants.add(currentName.replace('@', '').toLowerCase().trim());
-    }
-    
-    const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
     try {
+      const variants = new Set<string>();
+      variants.add(currentId.toString().toLowerCase().trim());
+      if (currentName) {
+        variants.add(currentName.toLowerCase().trim());
+        variants.add(currentName.replace('@', '').toLowerCase().trim());
+      }
+      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
       const res = await fetch(url);
       const data = await res.json();
       if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
         const list = data.access || data.purchasedIds;
-        if (Array.isArray(list)) {
-          setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
-        }
+        if (Array.isArray(list)) setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
       }
     } catch (e) { console.error("Access error:", e); }
     finally { setIsRefreshingAccess(false); }
   }, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
 
-  // 2. Создаем функцию загрузки товаров
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
@@ -220,7 +212,6 @@ useEffect(() => {
         const sanitizedData = rawData.filter((item: any) => (item.title || item.Title)).map((item: any, index: number) => {
           const p: any = {};
           Object.keys(item).forEach(key => { p[key.trim().toLowerCase()] = item[key]; });
-          const sectionValue = String(p.section || '').toLowerCase();
           return {
             ...p,
             id: p.id ? String(p.id).trim() : `row-${index + 2}`,
@@ -228,44 +219,29 @@ useEffect(() => {
             description: p.description || p.описание || '',
             price: Number(p.price || 0),
             imageUrl: p.imageurl || '',
-            section: ['bonus', 'бонусы'].includes(sectionValue) ? 'bonus' : (['portfolio', 'кейсы'].includes(sectionValue) ? 'portfolio' : 'shop'),
+            section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
             detailButtonText: p.detailbuttontext || p.buttontext || 'Оформить заказ'
           };
         });
         setProducts(sanitizedData);
-        if (userIdentifier && userIdentifier !== 'guest') {
-          fetchUserAccess(userIdentifier, userInfo?.username);
-        }
+        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess(userIdentifier, userInfo?.username);
       }
     } catch (e) { console.error("Products error:", e); }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
 
-  // 3. Создаем пустую функцию синхронизации, чтобы ничего не ломалось дальше
-  const syncWithCloud = useCallback(async () => {
-    console.log("Cloud sync ready");
-  }, []);
+  const syncWithCloud = useCallback(async () => { console.log("Sync ready"); }, []);
 
-  // 4. ГЛАВНЫЙ ЗАПУСК (всегда в конце списка функций!)
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
-    
     const info = getDetailedTgUser();
     setUserIdentifier(info.full_info); 
-    
-    analyticsService.startSession().then(sid => { 
-      activeSessionId.current = sid; 
-    });
-
-    // Теперь эта строчка СРАБОТАЕТ, потому что функция fetchProducts уже создана выше
+    analyticsService.startSession().then(sid => { activeSessionId.current = sid; });
     fetchProducts();
-    
     if (typeof saveSessionToSheet === 'function') {
       saveSessionToSheet(info.full_info, info.username || 'guest', 'home');
     }
   }, [fetchProducts]);
-
-  // --- КОНЕЦ БЛОКА СПАСЕНИЯ ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
