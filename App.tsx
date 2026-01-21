@@ -178,12 +178,12 @@ useEffect(() => {
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [paymentIframeUrl, setPaymentIframeUrl] = useState<string | null>(null);
 
- const fetchUserAccess = useCallback(async (userId, username) => {
-   
-const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
+ // --- НАЧАЛО БЛОКА ---
+  const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
     const currentId = userId || userIdentifier;
     const currentName = username || (userInfo?.username || "");
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
+    
     setIsRefreshingAccess(true);
     try {
       const variants = new Set<string>();
@@ -192,15 +192,22 @@ const fetchUserAccess = useCallback(async (userId?: string, username?: string) =
         variants.add(currentName.toLowerCase().trim());
         variants.add(currentName.replace('@', '').toLowerCase().trim());
       }
+      
       const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
       const res = await fetch(url);
       const data = await res.json();
+      
       if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
         const list = data.access || data.purchasedIds;
-        if (Array.isArray(list)) setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
+        if (Array.isArray(list)) {
+          setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
+        }
       }
-    } catch (e) { console.error("Access error:", e); }
-    finally { setIsRefreshingAccess(false); }
+    } catch (e) {
+      console.error("Access error:", e);
+    } finally {
+      setIsRefreshingAccess(false);
+    }
   }, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
 
   const fetchProducts = useCallback(async () => {
@@ -212,6 +219,7 @@ const fetchUserAccess = useCallback(async (userId?: string, username?: string) =
         const sanitizedData = rawData.filter((item: any) => (item.title || item.Title)).map((item: any, index: number) => {
           const p: any = {};
           Object.keys(item).forEach(key => { p[key.trim().toLowerCase()] = item[key]; });
+          const sectionVal = String(p.section || '').toLowerCase();
           return {
             ...p,
             id: p.id ? String(p.id).trim() : `row-${index + 2}`,
@@ -219,17 +227,23 @@ const fetchUserAccess = useCallback(async (userId?: string, username?: string) =
             description: p.description || p.описание || '',
             price: Number(p.price || 0),
             imageUrl: p.imageurl || '',
-            section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
+            section: ['bonus', 'бонусы'].includes(sectionVal) ? 'bonus' : (['portfolio', 'кейсы'].includes(sectionVal) ? 'portfolio' : 'shop'),
             detailButtonText: p.detailbuttontext || p.buttontext || 'Оформить заказ'
           };
         });
         setProducts(sanitizedData);
-        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess(userIdentifier, userInfo?.username);
+        if (userIdentifier && userIdentifier !== 'guest') {
+          fetchUserAccess(userIdentifier, userInfo?.username);
+        }
       }
-    } catch (e) { console.error("Products error:", e); }
+    } catch (e) {
+      console.error("Products error:", e);
+    }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
 
-  const syncWithCloud = useCallback(async () => { console.log("Sync ready"); }, []);
+  const syncWithCloud = useCallback(async () => {
+    console.log("Cloud sync ready");
+  }, []);
 
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -242,6 +256,7 @@ const fetchUserAccess = useCallback(async (userId?: string, username?: string) =
       saveSessionToSheet(info.full_info, info.username || 'guest', 'home');
     }
   }, [fetchProducts]);
+  // --- КОНЕЦ БЛОКА ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
