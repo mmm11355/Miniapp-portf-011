@@ -229,6 +229,7 @@ useEffect(() => {
   const syncWithCloud = useCallback(async () => {
 
  
+  // --- НАЧАЛО БЛОКА ЗАГРУЗКИ ---
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
@@ -267,7 +268,6 @@ useEffect(() => {
         setProducts(sanitizedData);
         localStorage.setItem('olga_products_v29', JSON.stringify(sanitizedData));
         
-        // Запускаем проверку доступа после загрузки товаров
         if (userIdentifier && userIdentifier !== 'guest') {
           fetchUserAccess(userIdentifier, userInfo?.username);
         }
@@ -285,7 +285,6 @@ useEffect(() => {
     }
 
     const info = getDetailedTgUser();
-    // Теперь внизу будет: @username (12345678)
     const fullUserInfo = info.full_info;
     setUserIdentifier(fullUserInfo); 
 
@@ -293,14 +292,13 @@ useEffect(() => {
       activeSessionId.current = sid;
     });
 
-    // Запускаем загрузку товаров (она теперь async)
     fetchProducts();
     
-    // Отправляем начальную сессию в таблицу
     if (typeof saveSessionToSheet === 'function') {
       saveSessionToSheet(fullUserInfo, info.username || 'guest', 'home');
     }
-  }, [fetchProducts]);
+  }, [fetchProducts]); 
+  // --- КОНЕЦ БЛОКА ---
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
