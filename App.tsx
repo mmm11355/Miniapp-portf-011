@@ -104,18 +104,20 @@ const Linkify = ({ text }: { text: string }) => {
      {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
       <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
         <div className="max-w-2xl mx-auto">
-          {hasAccess ? (
+         {hasAccess ? (
             <button 
-  onClick={() => {
-    onClose(); 
-    if (typeof onNavigate === 'function') onNavigate('account');
-  }}
-  style={{ backgroundColor: product.detailButtonColor || '#7ea6b1' }}
-  className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
->
-  <CheckCircle size={18} />
-  ОТКРЫТЬ В КАБИНЕТЕ
-</button>
+              onClick={() => {
+                onClose();
+                if (typeof onNavigate === 'function') {
+                  onNavigate('account');
+                }
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              ОТКРЫТЬ В КАБИНЕТЕ
+            </button>
           ) : (
             <button 
               onClick={() => {
@@ -128,6 +130,7 @@ const Linkify = ({ text }: { text: string }) => {
               {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
               {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
             </button>
+        
           )}
         </div>
       </div>
@@ -286,7 +289,10 @@ const App: React.FC = () => {
   // ФИЛЬТРЫ (Для твоего дизайна ниже)
   const categories = Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category).filter(Boolean)));
   const filteredProducts = products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter));
- const purchasedProducts = products.filter(p => userPurchasedIds.map(id => String(id).toLowerCase().trim()).includes(String(p.id).toLowerCase().trim()));
+ const purchasedProducts = products.filter(p => {
+    const cleanId = String(p.id || '').trim().toLowerCase();
+    return userPurchasedIds.some(uId => String(uId || '').trim().toLowerCase() === cleanId);
+  });
   const syncWithCloud = () => {};
 
   // --- ДАЛЬШЕ ИДЕТ ТВОЙ return ( И ДИЗАЙН — ИХ НЕ ТРОГАЙ! ---
@@ -547,17 +553,18 @@ const App: React.FC = () => {
     
   
     {/* Теперь используем ПРАВИЛЬНОЕ имя ProductDetail */}
-     {activeDetailProduct && (
-  <ProductDetail
-    product={activeDetailProduct}
-    onClose={() => setActiveDetailProduct(null)}
-    onCheckout={(p: any) => {
-      setActiveDetailProduct(null);
-      setCheckoutProduct(p);
-    }}
-    userPurchasedIds={userPurchasedIds}
-  />
-)}
+   {activeDetailProduct && (
+        <ProductDetail
+          product={activeDetailProduct}
+          onClose={() => setActiveDetailProduct(null)}
+          onNavigate={handleNavigate}
+          onCheckout={(p: any) => {
+            setActiveDetailProduct(null);
+            setCheckoutProduct(p);
+          }}
+          userPurchasedIds={userPurchasedIds}
+        />
+      )}
 
    {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
 {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
