@@ -157,17 +157,17 @@ const App: React.FC = () => {
         const sanitized = data.map((p, i) => ({
           ...p,
           id: p.id || p.Id || `row-${i+2}`,
+          section: String(p.section || p.Section || '').toLowerCase().trim(), // Читаем и с большой, и с маленькой буквы
           title: p.title || p.Title || '',
-          section: String(p.section || p.Section || '').toLowerCase().trim(),
           category: p.category || p.Category || ''
         }));
         setProducts(sanitized);
-        // Если есть ID пользователя, сразу тянем его доступы
+        
         const info = getDetailedTgUser();
         if (info.full_info) fetchUserAccess(info.full_info);
       }
-    } catch (e) { console.error("Ошибка загрузки товаров", e); }
-  }, [telegramConfig.googleSheetWebhook]);
+    } catch (e) { console.error("Ошибка загрузки"); }
+  }, [telegramConfig.googleSheetWebhook, fetchUserAccess]);
 
   // 2. ФУНКЦИЯ ДОСТУПОВ
   const fetchUserAccess = useCallback(async (uid?: string) => {
@@ -185,17 +185,17 @@ const App: React.FC = () => {
   }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
   // 3. НАВИГАЦИЯ + СТАТИСТИКА (Точно как в оригинале)
-  const handleNavigate = useCallback((newView: string, product: any = null) => {
-    setView(newView);
-    if (product) setActiveDetailProduct(product);
-    else setActiveDetailProduct(null);
-    setCheckoutProduct(null);
-    
-    // Отправка визита через твой сервис аналитики
+ const handleNavigate = useCallback((newView: string, product: any = null) => {
+    setView(newView); // Возвращаем управление через view
+    if (product) {
+      setActiveDetailProduct(product);
+    } else {
+      setActiveDetailProduct(null);
+    }
+    // Твоя статистика (возвращаем как было)
     const info = getDetailedTgUser();
-    const analytics = (window as any).analyticsService;
-    if (analytics?.saveSessionToSheet) {
-      analytics.saveSessionToSheet(info.full_info, info.username || 'guest', newView);
+    if (analyticsService?.saveSessionToSheet) {
+      analyticsService.saveSessionToSheet(info.full_info, info.username || 'guest', newView);
     }
     window.scrollTo(0, 0);
   }, []);
