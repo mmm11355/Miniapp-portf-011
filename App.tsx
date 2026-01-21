@@ -154,21 +154,51 @@ const MediaRenderer = ({ url, className }: { url: string; className?: string }) 
   return <img src={url} className={className} alt="media" loading="lazy" />;
 };
 
-const App: React.FC = () => {
-// --- ВОТ ЭТО ВСТАВЛЯЕМ СРАЗУ ПОСЛЕ const App = () => { ---
 
- 
-// 1. ТВОИ НАСТРОЙКИ ДЛЯ БОТА И ГУГЛ-ТАБЛИЦЫ
+// --- СЮДА ВСТАВЛЯЕМ КЛАСС (МОЗГИ БОТА) ---
+class AnalyticsService {
+  config: any;
+  constructor(config: any) { this.config = config; }
+  
+  async logOrder(orderData: any) {
+    console.log("Отправка заказа в TG...", orderData);
+    try {
+      // Отправка в Телеграм
+      const message = `🛍 Новый заказ: ${orderData.productTitle}\n💰 Сумма: ${orderData.price}₽\n👤 Клиент: ${orderData.customerName}\n📧 Email: ${orderData.customerEmail}\n🆔 TG ID: ${orderData.tg_id}`;
+      await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: this.config.chatId, text: message })
+      });
+      
+      // Отправка в Гугл Таблицу
+      const res = await fetch(this.config.googleSheetWebhook, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({ action: 'logOrder', ...orderData })
+      });
+      return { id: Date.now() }; // Временный ID для заказа
+    } catch (e) {
+      console.error("Ошибка бота:", e);
+      return { id: Date.now() };
+    }
+  }
+}
+
+// --- ТЕПЕРЬ ТВОЙ APP ---
+const App: React.FC = () => {
+  // Тут твой WEBHOOK_URL, BOT_TOKEN и остальное...
   const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec';
   const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
   const CHAT_ID = '-1002095569247';
 
-  // 2. ПОДКЛЮЧАЕМ СЕРВИС УВЕДОМЛЕНИЙ
   const [analyticsService] = useState(() => new AnalyticsService({
     botToken: BOT_TOKEN,
     chatId: CHAT_ID,
     googleSheetWebhook: WEBHOOK_URL
   }));
+  
+  // Дальше весь твой код...
   
   // 2. ВСЕ ТВОИ ПЕРЕМЕННЫЕ (Для вкладок, магазина и профиля)
   const [view, setView] = useState('home');
