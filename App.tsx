@@ -285,44 +285,94 @@ const handleNavigate = (newView, product = null) => {
           </div>
         </div>
       )}
-      {view === 'portfolio' && (
-        <div className="space-y-6 page-transition">
-          <div className="flex bg-slate-200/40 p-1 rounded-2xl mx-1">
-            <button onClick={() => setPortfolioTab('cases')} className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'cases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Кейсы</button>
-            <button onClick={() => setPortfolioTab('bonuses')} className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'bonuses' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Бонусы</button>
-          </div>
-          <div className="grid gap-6">{(portfolioTab === 'cases' ? products.filter(p => p.section === 'portfolio') : products.filter(p => p.section === 'bonus')).map(p => (
-            <div key={p.id} style={{ backgroundColor: p.cardBgColor || '#ffffff' }} className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4">
-              <h3 style={{ color: p.titleColor || '#1e293b' }} className="text-sm font-bold leading-tight">{p.title}</h3>
-              <MediaRenderer url={p.imageUrl} type={p.mediaType} className="w-full aspect-video object-cover rounded-2xl shadow-sm cursor-pointer" onClick={() => p.useDetailModal ? setActiveDetailProduct(p) : (p.externalLink && window.open(p.externalLink, '_blank'))} />
-              <button onClick={() => p.useDetailModal ? setActiveDetailProduct(p) : (p.externalLink && window.open(p.externalLink, '_blank'))} style={{ backgroundColor: p.buttonColor }} className="w-full py-4 rounded-2xl text-white font-bold text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">{p.buttonText}</button>
-            </div>))}
-          </div>
+
+      
+     {view === 'portfolio' && (
+  <div className="space-y-6 page-transition">
+    {/* Твои кнопки переключения Кейсы/Бонусы */}
+    <div className="flex bg-slate-200/40 p-1 rounded-2xl mx-1">
+      <button 
+        onClick={() => setPortfolioTab('cases')} 
+        className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'cases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+      >
+        Кейсы
+      </button>
+      <button 
+        onClick={() => setPortfolioTab('bonuses')} 
+        className={`flex-1 py-3 rounded-xl text-[12px] font-bold uppercase transition-all ${portfolioTab === 'bonuses' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+      >
+        Бонусы
+      </button>
+    </div>
+
+    <div className="grid gap-6">
+      {(portfolioTab === 'cases' ? products.filter(p => p.section === 'portfolio') : products.filter(p => p.section === 'bonus')).map(p => (
+        <div 
+          key={p.id} 
+          style={{ backgroundColor: p.cardBgColor || '#ffffff' }} 
+          className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4"
+        >
+          <h3 style={{ color: p.titleColor || '#1e293b' }} className="text-sm font-bold leading-tight">
+            {p.title}
+          </h3>
+          
+          {/* Картинка: вызывает handleNavigate для открытия лонгрида */}
+          <MediaRenderer 
+            url={p.imageUrl} 
+            type={p.mediaType} 
+            className="w-full aspect-video object-cover rounded-2xl shadow-sm cursor-pointer" 
+            onClick={() => p.useDetailModal ? handleNavigate('portfolio', p) : (p.externalLink && window.open(p.externalLink, '_blank'))} 
+          />
+
+          {/* Твоя кнопка: тоже теперь работает через handleNavigate */}
+          <button 
+            onClick={() => p.useDetailModal ? handleNavigate('portfolio', p) : (p.externalLink && window.open(p.externalLink, '_blank'))} 
+            style={{ backgroundColor: p.buttonColor }} 
+            className="w-full py-4 rounded-2xl text-white font-bold text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+          >
+            {p.buttonText}
+          </button>
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
 
       
     {view === 'shop' && (
   <div className="space-y-6 page-transition">
-    {/* Категории (без изменений) */}
+    {/* Категории (твои стили без изменений) */}
     <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 -mx-5 px-5">
       {['All', ...categories].map(c => (
-        <button key={c} onClick={() => setFilter(c)} className={`px-4 py-2 rounded-xl text-[12px] font-bold uppercase border transition-all ${filter === c ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'}`}>{c === 'All' ? 'Все' : c}</button>
+        <button 
+          key={c} 
+          onClick={() => setFilter(c)} 
+          className={`px-4 py-2 rounded-xl text-[12px] font-bold uppercase border transition-all ${
+            filter === c ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50/50 text-slate-400 border-indigo-100/50'
+          }`}
+        >
+          {c === 'All' ? 'Все' : c}
+        </button>
       ))}
     </div>
     
     <div className="grid gap-6 mt-4">
       {filteredProducts.map(p => {
         return (
-          <div key={p.id} style={{ backgroundColor: p.cardBgColor }} className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4 relative">
-            
+          <div 
+            key={p.id} 
+            style={{ backgroundColor: p.cardBgColor }} 
+            className="p-5 rounded-[2rem] border border-slate-50 shadow-sm space-y-4 relative"
+          >
             {/* Заголовок и цена */}
             <div className="flex justify-between gap-4">
-              <h3 style={{ color: p.titleColor }} className="text-sm font-bold leading-snug">{p.title}</h3>
+              <h3 style={{ color: p.titleColor }} className="text-sm font-bold leading-snug">
+                {p.title}
+              </h3>
               <span className="text-sm font-black text-slate-900">{p.price} ₽</span>
             </div>
 
-            {/* Картинка: ведет на описание */}
+            {/* Картинка: теперь открывает лонгрид через handleNavigate */}
             <MediaRenderer 
               url={p.imageUrl} 
               type={p.mediaType} 
@@ -330,7 +380,7 @@ const handleNavigate = (newView, product = null) => {
               onClick={() => handleNavigate('shop', p)} 
             />
 
-            {/* Твоя ЕДИНСТВЕННАЯ кнопка: ведет ТОЛЬКО на описание (лонгрид) */}
+            {/* Твоя кнопка из таблицы: ведет на описание (лонгрид) */}
             <button 
               onClick={() => handleNavigate('shop', p)} 
               style={{ backgroundColor: p.buttonColor }} 
