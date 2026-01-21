@@ -180,11 +180,14 @@ useEffect(() => {
 
  const fetchUserAccess = useCallback(async (userId, username) => {
    
-// --- НАЧАЛО БЕЗОПАСНОГО БЛОКА ---
+// --- НАЧАЛО БЛОКА СПАСЕНИЯ ---
+
+  // 1. Создаем функцию проверки доступов
   const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
     const currentId = userId || userIdentifier;
     const currentName = username || (userInfo?.username || "");
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
+    
     setIsRefreshingAccess(true);
     const variants = new Set<string>();
     variants.add(currentId.toString().toLowerCase().trim());
@@ -192,23 +195,22 @@ useEffect(() => {
       variants.add(currentName.toLowerCase().trim());
       variants.add(currentName.replace('@', '').toLowerCase().trim());
     }
+    
     const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
     try {
       const res = await fetch(url);
       const data = await res.json();
       if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
         const list = data.access || data.purchasedIds;
-        if (Array.isArray(list)) setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
+        if (Array.isArray(list)) {
+          setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
+        }
       }
     } catch (e) { console.error("Access error:", e); }
     finally { setIsRefreshingAccess(false); }
   }, [telegramConfig.googleSheetWebhook, userIdentifier, userInfo]);
 
-  const syncWithCloud = useCallback(async () => {
-    // Временно пустая функция, чтобы не было ошибок
-    console.log("Syncing...");
-  }, []);
-
+  // 2. Создаем функцию загрузки товаров
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
@@ -231,109 +233,39 @@ useEffect(() => {
           };
         });
         setProducts(sanitizedData);
-        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess(userIdentifier, userInfo?.username);
+        if (userIdentifier && userIdentifier !== 'guest') {
+          fetchUserAccess(userIdentifier, userInfo?.username);
+        }
       }
     } catch (e) { console.error("Products error:", e); }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier, userInfo]);
 
+  // 3. Создаем пустую функцию синхронизации, чтобы ничего не ломалось дальше
+  const syncWithCloud = useCallback(async () => {
+    console.log("Cloud sync ready");
+  }, []);
+
+  // 4. ГЛАВНЫЙ ЗАПУСК (всегда в конце списка функций!)
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
+    
     const info = getDetailedTgUser();
     setUserIdentifier(info.full_info); 
-    analyticsService.startSession().then(sid => { activeSessionId.current = sid; });
+    
+    analyticsService.startSession().then(sid => { 
+      activeSessionId.current = sid; 
+    });
+
+    // Теперь эта строчка СРАБОТАЕТ, потому что функция fetchProducts уже создана выше
     fetchProducts();
+    
     if (typeof saveSessionToSheet === 'function') {
       saveSessionToSheet(info.full_info, info.username || 'guest', 'home');
     }
   }, [fetchProducts]);
-  // --- КОНЕЦ БЕЗОПАСНОГО БЛОКА ---
 
-   
-  }, [fetchProducts]); // Закрыли useLayoutEffect здесь
-  // --- КОНЕЦ БЛОКА ---
-
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [filter, setFilter] = useState<string>('All');
-  const [customerName, setCustomerName] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-
- const purchasedProducts = useMemo(() => {
-    // Если доступов нет, возвращаем пустой массив
-    if (!userPurchasedIds || userPurchasedIds.length === 0) return [];
-
-    return products.filter(p => {
-      const pid = String(p.id).trim().toLowerCase();
-      return userPurchasedIds.some(accessId => {
-        const cleanAccess = String(accessId).trim().toLowerCase();
-        // Даем доступ если ID совпадает или в таблице написано 'all'
-        return cleanAccess === 'all' || cleanAccess === pid;
-      });
-    });
-  }, [products, userPurchasedIds]);
-
-  const filteredProducts = useMemo(() => products.filter(p => p.section === 'shop' && (filter === 'All' || p.category === filter)), [products, filter]);
-  const categories = useMemo(() => Array.from(new Set(products.filter(p => p.section === 'shop').map(p => p.category))).filter(Boolean), [products]);
-
-const handleNavigate = (newView, product = null) => {
-  console.log("Нажата кнопка:", newView, "Товар:", product);
-
-  setCheckoutProduct(null);
-  setActiveSecretProduct(null);
-
-  if (product && (product.id || product.title)) {
-    setActiveDetailProduct(product);
-  } else {
-    setActiveDetailProduct(null);
-  }
-
-  if (newView) setView(newView);
-
-  // --- ВОТ ЭТОТ БЛОК ОТВЕЧАЕТ ЗА СТАТИСТИКУ ---
-  const username = userInfo?.username || userInfo?.first_name || "guest";
-  
-  // Определяем, что именно писать в 5-ю колонку
-  let pageName = newView;
-  if (product) pageName = `view_${newView}_${product.id}`; 
-
-  // Вызываем сохранение (убедитесь, что функция saveSessionToSheet определена в коде выше)
-  if (typeof saveSessionToSheet === 'function') {
-    saveSessionToSheet(userIdentifier, username, pageName);
-  }
-  // --------------------------------------------
-
-  if (newView === 'account') {
-    const currentUsername = userInfo?.username || userInfo?.first_name || "";
-    fetchUserAccess(userIdentifier, currentUsername);
-  }
-};
-
-  const MediaRenderer: React.FC<{ url: string; type: 'image' | 'video'; className?: string; onClick?: () => void; isDetail?: boolean }> = ({ url, type, className, onClick, isDetail }) => {
-    if (!url) return null;
-    if (url.includes('rutube.ru') || url.includes('youtube.com')) {
-      let embedUrl = url.replace('/video/', '/play/embed/').replace('watch?v=', 'embed/');
-      return <div className={`relative w-full aspect-video bg-black overflow-hidden ${isDetail ? 'rounded-2xl' : 'rounded-xl'}`}><iframe src={embedUrl} className="w-full h-full border-none" allowFullScreen></iframe></div>;
-    }
-    return type === 'video' ? <video src={url} className={isDetail ? 'w-auto rounded-2xl' : className} autoPlay muted loop playsInline onClick={onClick} /> : <img src={url} className={isDetail ? 'w-auto rounded-2xl' : className} alt="" onClick={onClick} />;
-  };
-
-  const renderRichText = (text: string) => {
-    if (!text) return null;
-    const parts = text.split(/(\[\[(?:image|video):.*?\]\])/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('[[image:')) return <img key={i} src={part.slice(8, -2)} className="w-full rounded-2xl my-4 shadow-sm" />;
-      if (part.startsWith('[[video:')) return <MediaRenderer key={i} url={part.slice(8, -2)} type="video" isDetail={true} />;
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      const subParts = part.split(urlRegex);
-      return (<p key={i} className="mb-2 whitespace-pre-wrap">{subParts.map((sub, j) => {
-        if (sub.match(urlRegex)) {
-          return <a key={j} href={sub} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-bold break-all">{sub}</a>;
-        }
-        return sub;
-      })}</p>);
-    });
-  };
+  // --- КОНЕЦ БЛОКА СПАСЕНИЯ ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
