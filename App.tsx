@@ -8,46 +8,42 @@ import {
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
 } from 'lucide-react';
 
-const ProductDetail = ({ product, onClose, onCheckout, userIdentifier, userPurchasedIds }: any) => {
+const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) => {
   return (
     <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
-      <div className="relative min-h-screen">
-        {/* Шапка с кнопкой Назад и твоим логотипом */}
-        <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-20 px-6 py-4 border-b border-slate-100 flex items-center gap-4">
-          <button onClick={onClose} className="p-2 text-slate-400">← Назад</button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">OA</div>
-            <div className="text-[10px] font-bold leading-none uppercase">О ГЕТКУРС <br/><span className="text-indigo-400 text-[8px]">и не только</span></div>
-          </div>
+      <div className="relative min-h-screen pb-32">
+        {/* Кнопка Назад */}
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-30 px-6 py-4 border-b border-slate-100 flex items-center gap-4">
+          <button onClick={onClose} className="p-2 text-slate-400 text-xl">←</button>
+          <span className="font-bold text-sm uppercase tracking-wider text-slate-900">Описание</span>
         </div>
 
-        <div className="max-w-2xl mx-auto px-6 pt-24 pb-32 space-y-8">
-          {/* Твое видео или фото из таблицы */}
+        <div className="max-w-2xl mx-auto px-6 pt-6 space-y-8">
+          {/* Главное медиа (imageUrl из логов) */}
           <MediaRenderer 
             url={product.imageUrl} 
             type={product.mediaType} 
-            className="w-full aspect-video object-cover rounded-[2rem] shadow-xl" 
+            className="w-full aspect-video object-cover rounded-[2.5rem] shadow-2xl" 
           />
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h1 className="text-2xl font-black text-slate-900 leading-tight">
               {product.title}
             </h1>
             
-            {/* Твой текст из таблицы */}
-            <div 
-              className="prose prose-slate max-w-none text-slate-600 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: product.description }}
-            />
+            {/* Твой расширенный текст из таблицы (detailFullDescription) */}
+            <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap">
+              {product.detailFullDescription || product.description}
+            </div>
           </div>
         </div>
 
-        {/* Кнопка покупки/открытия внизу */}
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-lg border-t border-slate-100 z-20">
+        {/* Кнопка внизу */}
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-lg border-t border-slate-100 z-40">
           <div className="max-w-2xl mx-auto">
-            {userPurchasedIds.includes(String(product.id)) ? (
+            {userPurchasedIds?.includes(String(product.id)) ? (
               <button className="w-full py-5 rounded-[2rem] bg-green-500 text-white font-bold uppercase tracking-widest shadow-lg">
-                ОТКРЫТЬ МАТЕРИАЛ
+                МАТЕРИАЛ КУПЛЕН
               </button>
             ) : (
               <button 
@@ -556,17 +552,16 @@ const handleNavigate = (newView, product = null) => {
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none opacity-20"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{userIdentifier}</span></div>
     
   
-     {/* ВОЗВРАЩАЕМ ТВОЙ РОДНОЙ ЛОНГРИД */}
+    {/* Теперь используем ПРАВИЛЬНОЕ имя ProductDetail */}
       {activeDetailProduct && (
-        <ItemDetail
+        <ProductDetail
           product={activeDetailProduct}
           onClose={() => setActiveDetailProduct(null)}
-          onCheckout={(p) => {
+          onCheckout={(p: any) => {
             setActiveDetailProduct(null);
             setCheckoutProduct(p);
           }}
-          /* Передаем ID пользователя для проверки доступа внутри лонгрида */
-          userIdentifier={userIdentifier === 'guest' ? (userInfo?.id?.toString() || 'guest') : userIdentifier}
+          userIdentifier={userIdentifier}
           userPurchasedIds={userPurchasedIds}
         />
       )}
