@@ -120,103 +120,75 @@ const ProductDetail = ({ product, onClose, onCheckout, userPurchasedIds }: any) 
 };
 
 const App: React.FC = () => {
-  // --- НАЧАЛО БЛОКА-СПАСАТЕЛЯ ---
+ // --- НАЧАЛО БЛОКА ---
   const [activeTab, setActiveTab] = useState('shop');
+  const [view, setView] = useState('list'); // ТА САМАЯ ПЕРЕМЕННАЯ, КОТОРОЙ НЕ ХВАТАЛО
   const [products, setProducts] = useState<any[]>([]);
   const [userPurchasedIds, setUserPurchasedIds] = useState<string[]>([]);
   const [userIdentifier, setUserIdentifier] = useState<string>('');
   const [isRefreshingAccess, setIsRefreshingAccess] = useState(false);
   const activeSessionId = useRef<string | null>(null);
-  
-  // Берем конфиг из импортированного файла
+
   const telegramConfig = (window as any).TelegramConfig || { googleSheetWebhook: '' };
   const userInfo = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
 
-  // 1. ФУНКЦИЯ ПЕРЕХОДОВ
+  // Функция для навигации
   const handleNavigate = useCallback((page: string) => {
     setActiveTab(page);
-    // Отправляем статистику при переходе
+    setView('list'); // Сбрасываем вид на список при переключении табов
     const info = getDetailedTgUser();
-    const analyticsService: any = (window as any).analyticsService || { saveSessionToSheet: () => {} };
-    if (typeof analyticsService.saveSessionToSheet === 'function') {
-      analyticsService.saveSessionToSheet(info.full_info, info.username || 'guest', page);
+    const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
+    if (typeof saveFunc === 'function') {
+      saveFunc(info.full_info, info.username || 'guest', page);
     }
     window.scrollTo(0, 0);
   }, [userIdentifier]);
 
-  // 2. ПРОВЕРКА ДОСТУПОВ
+  // Загрузка доступов
   const fetchUserAccess = useCallback(async (userId?: string, username?: string) => {
     const currentId = userId || userIdentifier;
-    const currentName = username || (userInfo?.username || "");
     if (!telegramConfig.googleSheetWebhook || !currentId || currentId === 'guest') return;
-    
     setIsRefreshingAccess(true);
     try {
-      const variants = new Set<string>();
-      variants.add(currentId.toString().toLowerCase().trim());
-      if (currentName) {
-        variants.add(currentName.toLowerCase().trim());
-        variants.add(currentName.replace('@', '').toLowerCase().trim());
-      }
-      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(Array.from(variants).join(','))}&_t=${Date.now()}`;
+      const url = `${telegramConfig.googleSheetWebhook}?action=getUserAccess&userIds=${encodeURIComponent(currentId)}&_t=${Date.now()}`;
       const res = await fetch(url);
       const data = await res.json();
-      if ((data.status === 'success' || data.ok) && (data.access || data.purchasedIds)) {
-        const list = data.access || data.purchasedIds;
-        if (Array.isArray(list)) setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
+      if ((data.status === 'success' || data.ok)) {
+        const list = data.access || data.purchasedIds || [];
+        setUserPurchasedIds(list.map((item: any) => String(item).trim().toLowerCase()));
       }
     } catch (e) { console.error("Access error:", e); }
     finally { setIsRefreshingAccess(false); }
   }, [telegramConfig.googleSheetWebhook, userIdentifier]);
 
-  // 3. ЗАГРУЗКА ТОВАРОВ
+  // Загрузка товаров
   const fetchProducts = useCallback(async () => {
     if (!telegramConfig.googleSheetWebhook) return;
     try {
       const response = await fetch(`${telegramConfig.googleSheetWebhook}?action=getProducts&sheet=Catalog&_t=${Date.now()}`, { redirect: 'follow' });
       const rawData = await response.json();
-      if (rawData && Array.isArray(rawData)) {
-        const sanitizedData = rawData.filter((item: any) => (item.title || item.Title)).map((item: any, index: number) => {
-          const p: any = {};
-          Object.keys(item).forEach(key => { p[key.trim().toLowerCase()] = item[key]; });
-          return {
-            ...p,
-            id: p.id ? String(p.id).trim() : `row-${index + 2}`,
-            title: p.title || p.название || 'Товар',
-            description: p.description || p.описание || '',
-            price: Number(p.price || 0),
-            imageUrl: p.imageurl || '',
-            section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
-            detailButtonText: p.detailbuttontext || p.buttontext || 'Оформить заказ'
-          };
-        });
-        setProducts(sanitizedData);
-        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess(userIdentifier, userInfo?.username);
+      if (Array.isArray(rawData)) {
+        const sanitized = rawData.filter(i => i.title || i.Title).map((p, index) => ({
+          ...p,
+          id: p.id || `row-${index + 2}`,
+          section: ['bonus', 'бонусы'].includes(String(p.section).toLowerCase()) ? 'bonus' : (['portfolio', 'кейсы'].includes(String(p.section).toLowerCase()) ? 'portfolio' : 'shop'),
+        }));
+        setProducts(sanitized);
+        if (userIdentifier && userIdentifier !== 'guest') fetchUserAccess();
       }
     } catch (e) { console.error("Products error:", e); }
   }, [telegramConfig.googleSheetWebhook, fetchUserAccess, userIdentifier]);
 
-  // 4. ЗАПУСК ПРИЛОЖЕНИЯ
   useLayoutEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     const info = getDetailedTgUser();
     setUserIdentifier(info.full_info); 
-    
-    // Инициализируем аналитику
-    const analytics: any = (window as any).analyticsService || { startSession: async () => 'id' };
-    analytics.startSession().then((sid: string) => { activeSessionId.current = sid; });
-    
     fetchProducts();
-    
-    const saveFunc = (window as any).analyticsService?.saveSessionToSheet;
-    if (typeof saveFunc === 'function') {
-      saveFunc(info.full_info, info.username || 'guest', 'home');
-    }
   }, [fetchProducts]);
 
-  const syncWithCloud = useCallback(async () => { console.log("Sync ready"); }, []);
-  // --- КОНЕЦ БЛОКА-СПАСАТЕЛЯ ---
+  const syncWithCloud = useCallback(async () => {}, []);
+  // --- КОНЕЦ БЛОКА ---
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
