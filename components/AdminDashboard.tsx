@@ -44,7 +44,7 @@ const AdminDashboard: React.FC = () => {
       'date': ['timestamp', 'дата', 'date', 'время', 'starttime'],
       'city': ['city', 'город'],
       'country': ['country', 'страна'],
-      'username': ['username', 'tgusername', 'ник', 'user'],
+      'username': ['username', 'tgusername', 'ник', 'user', 'tg_username'],
       'orderId': ['orderid', 'id']
     };
     const searchKeys = aliases[key] || [key];
@@ -60,20 +60,26 @@ const AdminDashboard: React.FC = () => {
     return obj[key];
   };
 
+  // Улучшенный парсер даты для фильтров
   const parseSafeDate = (dateVal: any): number => {
     if (!dateVal) return 0;
     if (typeof dateVal === 'number') return dateVal;
-    const str = String(dateVal).trim();
-    const dmyMatch = str.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (dmyMatch) {
-      const [_, d, m, y] = dmyMatch;
-      const timePart = str.split(',')[1]?.trim() || '00:00:00';
-      const isoStr = `${y}-${m}-${d}T${timePart.replace(/\s/g, '')}`;
-      const ts = Date.parse(isoStr);
-      if (!isNaN(ts)) return ts;
+    
+    try {
+      const str = String(dateVal).trim();
+      // Обработка формата 21.01.2025, 15:30:00
+      const dmy = str.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+      if (dmy) {
+        const [_, d, m, y] = dmy;
+        const timeMatch = str.match(/(\d{2}):(\d{2}):(\d{2})/);
+        const time = timeMatch ? timeMatch[0] : '00:00:00';
+        return new Date(`${y}-${m}-${d}T${time}`).getTime();
+      }
+      const ts = Date.parse(str);
+      return isNaN(ts) ? 0 : ts;
+    } catch (e) {
+      return 0;
     }
-    const isoTs = Date.parse(str);
-    return isNaN(isoTs) ? 0 : isoTs;
   };
 
   const fetchData = async (silent = false) => {
@@ -103,17 +109,24 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const { filteredStats, processed } = useMemo(() => {
-    const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
-    const tenMin = 10 * 60 * 1000;
+    const now = new Date();
+    // Начало текущего дня (00:00:00) для точного расчета "За сегодня"
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const tenMinMs = 10 * 60 * 1000;
 
     const processedOrders = (orders || []).map(o => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
-      const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
-      const isExpired = (now - orderTime) > tenMin;
+      const rawDate = getVal(o, 'date') || getVal(o, 'timestamp');
+      const orderTime = parseSafeDate(rawDate);
+      
+      const isExpired = (Date.now() - orderTime) > tenMinMs;
       const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да' || psRaw === 'yes';
       const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
+
+      // Логика ника: ищем во всех возможных полях
+      const nick = o.username || o.tgusername || o.tg_username || getVal(o, 'username');
 
       return { 
         ...o, 
@@ -125,15 +138,22 @@ const AdminDashboard: React.FC = () => {
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
-        dUser: getVal(o, 'username') ? `@${getVal(o, 'username').replace('@', '')}` : 'Без ника',
-        dDate: getVal(o, 'date') || '---'
+        dUser: nick ? `@${String(nick).replace('@', '')}` : 'Без ника',
+        dDate: rawDate || '---'
       };
     });
 
-    const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : period === 'month' ? now - 30 * day : 0);
-    
-    const ordersInPeriod = processedOrders.filter(o => o.orderTime >= threshold);
-    const sessionsInPeriod = (sessions || []).filter(s => parseSafeDate(getVal(s, 'date')) >= threshold);
+    // Определяем порог фильтрации
+    let threshold = 0;
+    if (period === 'today') threshold = startOfToday;
+    else if (period === '7days') threshold = Date.now() - (7 * dayMs);
+    else if (period === 'month') threshold = Date.now() - (30 * dayMs);
+
+    const ordersInPeriod = processedOrders.filter(o => period === 'all' || o.orderTime >= threshold);
+    const sessionsInPeriod = (sessions || []).filter(s => {
+      const sTime = parseSafeDate(getVal(s, 'date'));
+      return period === 'all' || sTime >= threshold;
+    });
 
     const geoStats = {};
     sessionsInPeriod.forEach(s => {
