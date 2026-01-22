@@ -110,19 +110,16 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { filteredStats, processed } = useMemo(() => {
+ const { filteredStats, processed, visits } = useMemo(() => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const tenMin = 10 * 60 * 1000;
 
-    // 1. Сначала готовим все заказы (обрабатываем статусы и 10 минут)
     const processedOrders = orders.map(o => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
-      
       const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
       const isExpired = (now - orderTime) > tenMin;
-
       const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да';
       const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
 
@@ -132,7 +129,7 @@ const AdminDashboard: React.FC = () => {
         isFailed,
         orderTime,
         pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
-        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание' : 'Новый')),
+        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : 'Новый'),
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
@@ -140,35 +137,34 @@ const AdminDashboard: React.FC = () => {
       };
     });
 
-    // 2. Считаем статистику по ПРАВИЛЬНЫМ датам
     const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : now - 30 * day);
-    
     const filteredOrders = processedOrders.filter(o => period === 'all' || o.orderTime > threshold);
     const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
 
+    // Считаем географию, чтобы не было ошибки "geoStats is not defined"
+    const geo = {};
+    filteredSessions.forEach(s => {
+      const city = getVal(s, 'city') || 'Не определен';
+      geo[city] = (geo[city] || 0) + 1;
+    });
+
     return {
       processed: processedOrders,
+      visits: filteredSessions.length,
       filteredStats: {
         ordersCount: filteredOrders.length,
         sessionsCount: filteredSessions.length,
-        revenue: filteredOrders.filter(o => o.isPaid).reduce((sum, o) => sum + Number(o.dPrice), 0)
+        revenue: filteredOrders.filter(o => o.isPaid).reduce((sum, o) => sum + Number(o.dPrice), 0),
+        geo: Object.entries(geo).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
     };
   }, [orders, sessions, period]);
 
-    const geoStats: Record<string, number> = {};
-    Object.values(sessionMap).forEach((s: any) => {
-      const key = `${s.country !== 'Unknown' ? s.country : ''}${s.city !== 'Unknown' ? ', ' + s.city : ''} — ${s.user}`;
-      geoStats[key] = (geoStats[key] || 0) + 1;
-    });
-
-
   const displayList = useMemo(() => {
-    const list = activeTab === 'active' 
-      ? filteredStats.allOrders.filter(o => o.pStatus !== 'failed')
-      : filteredStats.allOrders.filter(o => o.pStatus === 'failed');
-    return [...list].sort((a,b) => parseSafeDate(b.dDate) - parseSafeDate(a.dDate));
-  }, [filteredStats.allOrders, activeTab]);
+    return activeTab === 'active' 
+      ? processed.filter(o => !o.isFailed || o.isPaid)
+      : processed.filter(o => o.isFailed && !o.isPaid);
+  }, [processed, activeTab]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10 max-w-md mx-auto">
