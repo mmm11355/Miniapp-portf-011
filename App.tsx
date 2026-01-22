@@ -408,7 +408,7 @@ const App: React.FC = () => {
     <div className="grid grid-cols-3 gap-1.5 px-2">
       {[
         { label: 'Проектов', val: '60+' },
-        { label: 'Опыт', val: '3 года' },
+        { label: 'Опыт', val: '+4 года' },
         { label: 'Рейтинг', val: '5.0' }
       ].map((s, i) => (
         <div key={i} className="bg-white p-2 rounded-[10px] border border-slate-100 shadow-sm text-center">
