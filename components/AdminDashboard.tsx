@@ -4,6 +4,10 @@ import { RefreshCw, Activity, Eye, ShoppingCart, User } from 'lucide-react';
 // ============================================================
 // НАСТРОЙКИ
 // ============================================================
+// WEBHOOK - URL Google Apps Script для получения данных
+// Глобальный фильтр периода для всех разделов
+// ============================================================
+
 const WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 const AdminDashboard: React.FC = () => {
@@ -14,8 +18,8 @@ const AdminDashboard: React.FC = () => {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Отдельные периоды для визитов
-  const [visitsPeriod, setVisitsPeriod] = useState<'today' | '7days' | 'month' | 'all'>('all');
+  // ЕДИНЫЙ фильтр периода для всего
+  const [period, setPeriod] = useState<'today' | '7days' | 'month' | 'all'>('all');
   
   // Статусы для заказов
   const [ordersTab, setOrdersTab] = useState<'active' | 'archive'>('active');
@@ -23,6 +27,8 @@ const AdminDashboard: React.FC = () => {
   // ========================================
   // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
   // ========================================
+  
+  // Получение значения из объекта (регистронезависимо)
   const getVal = (obj: any, key: string) => {
     if (!obj) return '';
     const lowKey = key.toLowerCase();
@@ -30,19 +36,27 @@ const AdminDashboard: React.FC = () => {
     return foundKey ? obj[foundKey] : (obj[key] || '');
   };
 
+  // Безопасный парсинг даты
   const parseSafeDate = (val: any): number => {
     if (!val) return 0;
     const s = String(val).trim();
+    
+    // Формат: DD.MM.YYYY, HH:MM:SS
     const m = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
     if (m) {
       const time = s.split(',')[1]?.trim() || '00:00:00';
-      return new Date(`${m[3]}-${m[2]}-${m[1]}T${time}`).getTime();
+      const isoDate = `${m[3]}-${m[2]}-${m[1]}T${time}`;
+      return new Date(isoDate).getTime();
     }
-    return new Date(s).getTime() || 0;
+    
+    // Попытка стандартного парсинга
+    const parsed = new Date(s).getTime();
+    return isNaN(parsed) ? 0 : parsed;
   };
 
+  // Форматирование даты
   const formatDate = (timestamp: number): string => {
-    if (!timestamp) return '';
+    if (!timestamp || isNaN(timestamp)) return '—';
     const d = new Date(timestamp);
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -59,10 +73,14 @@ const AdminDashboard: React.FC = () => {
     try {
       const res = await fetch(`${WEBHOOK}?action=getStats&_t=${Date.now()}`);
       const data = await res.json();
+      
+      console.log('Loaded sessions:', data.sessions?.length || 0);
+      console.log('Loaded leads:', data.leads?.length || 0);
+      
       setSessions(data.sessions || []);
       setLeads(data.leads || []);
     } catch (e) {
-      console.error('Data error');
+      console.error('Data fetch error:', e);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -70,39 +88,58 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const i = setInterval(() => fetchData(true), 30000);
-    return () => clearInterval(i);
+    const interval = setInterval(() => fetchData(true), 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // ========================================
-  // ОБРАБОТКА ДАННЫХ
+  // ОБРАБОТКА И ФИЛЬТРАЦИЯ ДАННЫХ
   // ========================================
   const processedData = useMemo(() => {
     const now = Date.now();
     const startOfToday = new Date().setHours(0, 0, 0, 0);
     
-    // Пороги для периодов визитов
-    let visitsThreshold = 0;
-    if (visitsPeriod === 'today') visitsThreshold = startOfToday;
-    else if (visitsPeriod === '7days') visitsThreshold = now - 7 * 86400000;
-    else if (visitsPeriod === 'month') visitsThreshold = now - 30 * 86400000;
+    // Определяем порог времени для фильтрации
+    let threshold = 0;
+    if (period === 'today') threshold = startOfToday;
+    else if (period === '7days') threshold = now - 7 * 86400000;
+    else if (period === 'month') threshold = now - 30 * 86400000;
+
+    console.log('Period:', period, 'Threshold:', new Date(threshold));
 
     // ========================================
-    // ОБРАБОТКА ВИЗИТОВ
+    // ОБРАБОТКА ВИЗИТОВ (SESSIONS)
     // ========================================
     const allSessions = sessions.map(s => {
-      const ts = parseSafeDate(getVal(s, 'Дата') || getVal(s, 'date'));
+      const dateStr = getVal(s, 'Дата') || getVal(s, 'date') || '';
+      const ts = parseSafeDate(dateStr);
+      
+      // Извлекаем данные пользователя
       const user = getVal(s, 'Имя') || getVal(s, 'Email') || getVal(s, 'telegram') || 'Гость';
-      const page = getVal(s, 'Товар') || getVal(s, 'page') || 'Главная';
+      const telegram = getVal(s, 'telegram') || (user.includes('@') ? user : '');
+      const page = getVal(s, 'Товар') || getVal(s, 'page') || getVal(s, 'Страница') || 'Главная';
       const source = getVal(s, 'UTM Source') || getVal(s, 'utmSource') || 'direct';
       const phone = getVal(s, 'телефон') || '';
-      const telegram = getVal(s, 'telegram') || '';
-      return { ...s, ts, user, page, source, phone, telegram };
-    });
+      
+      return { 
+        ...s, 
+        ts, 
+        user, 
+        telegram: telegram || user, 
+        page, 
+        source, 
+        phone 
+      };
+    }).filter(s => s.ts > 0); // Убираем записи с невалидными датами
 
+    console.log('All sessions processed:', allSessions.length);
+
+    // Фильтруем по периоду
     const filteredSessions = allSessions.filter(s => 
-      visitsPeriod === 'all' || s.ts >= visitsThreshold
+      period === 'all' || s.ts >= threshold
     );
+
+    console.log('Filtered sessions:', filteredSessions.length);
 
     // ========================================
     // ГРУППИРОВКА ПО ПОЛЬЗОВАТЕЛЯМ
@@ -120,55 +157,81 @@ const AdminDashboard: React.FC = () => {
     const usersMap: Record<string, UserStats> = {};
 
     filteredSessions.forEach(s => {
-      if (!usersMap[s.user]) {
-        usersMap[s.user] = {
+      const key = s.telegram || s.user;
+      
+      if (!usersMap[key]) {
+        usersMap[key] = {
           user: s.user,
-          telegram: s.telegram || s.user,
+          telegram: s.telegram,
           visitCount: 0,
-          lastVisit: s.ts,
+          lastVisit: 0,
           firstSource: s.source,
           pages: [],
-          phone: s.phone
+          phone: s.phone || ''
         };
       }
       
-      usersMap[s.user].visitCount++;
-      if (s.ts > usersMap[s.user].lastVisit) {
-        usersMap[s.user].lastVisit = s.ts;
+      usersMap[key].visitCount++;
+      
+      // Обновляем последний визит
+      if (s.ts > usersMap[key].lastVisit) {
+        usersMap[key].lastVisit = s.ts;
       }
-      if (!usersMap[s.user].pages.includes(s.page)) {
-        usersMap[s.user].pages.push(s.page);
+      
+      // Добавляем страницу, если её ещё нет
+      if (s.page && !usersMap[key].pages.includes(s.page)) {
+        usersMap[key].pages.push(s.page);
+      }
+      
+      // Обновляем телефон
+      if (s.phone && !usersMap[key].phone) {
+        usersMap[key].phone = s.phone;
       }
     });
 
     const usersList = Object.values(usersMap).sort((a, b) => b.visitCount - a.visitCount);
 
+    console.log('Users grouped:', usersList.length);
+
     // ========================================
-    // ОБРАБОТКА ЗАКАЗОВ
+    // ОБРАБОТКА ЗАКАЗОВ (LEADS)
     // ========================================
     const allLeads = leads.map(l => {
-      const ts = parseSafeDate(getVal(l, 'timestamp') || getVal(l, 'Дата'));
+      const dateStr = getVal(l, 'timestamp') || getVal(l, 'Дата') || '';
+      const ts = parseSafeDate(dateStr);
       const status = String(getVal(l, 'PaymentStatus') || '').toLowerCase();
       const isPaid = status === 'да' || status.includes('оплат');
-      const isFailed = status.includes('отмен') || (!isPaid && (now - ts) > 600000);
+      const isFailed = status.includes('отмен') || status.includes('отклон') || 
+                       (!isPaid && ts > 0 && (now - ts) > 600000);
+      
       return { ...l, ts, isPaid, isFailed };
-    });
+    }).filter(l => l.ts > 0);
 
-    const displayLeads = allLeads.filter(l => 
-      ordersTab === 'active' ? (!l.isFailed || l.isPaid) : l.isFailed
+    console.log('All leads processed:', allLeads.length);
+
+    // Фильтруем заказы по периоду
+    const filteredLeads = allLeads.filter(l => 
+      period === 'all' || l.ts >= threshold
     );
+
+    console.log('Filtered leads:', filteredLeads.length);
+
+    // Фильтруем по статусу (актив/архив)
+    const displayLeads = filteredLeads.filter(l => 
+      ordersTab === 'active' ? (!l.isFailed || l.isPaid) : l.isFailed
+    ).sort((a, b) => b.ts - a.ts);
 
     return {
       stats: {
         totalVisits: filteredSessions.length,
         uniqueUsers: usersList.length,
-        totalOrders: allLeads.length,
-        paidOrders: allLeads.filter(l => l.isPaid).length
+        totalOrders: filteredLeads.length,
+        paidOrders: filteredLeads.filter(l => l.isPaid).length
       },
       usersList: usersList,
-      ordersList: displayLeads.sort((a, b) => b.ts - a.ts)
+      ordersList: displayLeads
     };
-  }, [sessions, leads, visitsPeriod, ordersTab]);
+  }, [sessions, leads, period, ordersTab]);
 
   // ========================================
   // RENDER
@@ -178,7 +241,7 @@ const AdminDashboard: React.FC = () => {
       {/* Header */}
       <div className="p-6 bg-white border-b flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <h1 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Admin Dashboard
+          Admin
         </h1>
         <button onClick={() => fetchData()}>
           <RefreshCw 
@@ -186,6 +249,30 @@ const AdminDashboard: React.FC = () => {
             className={loading ? 'animate-spin text-slate-400' : 'text-indigo-600'} 
           />
         </button>
+      </div>
+
+      {/* ========================================
+          ЕДИНЫЙ ФИЛЬТР ПЕРИОДА
+      ========================================== */}
+      <div className="flex gap-1 p-4 bg-white border-b sticky top-[73px] z-40">
+        {[
+          { key: 'today', label: 'День' },
+          { key: '7days', label: '7 Дн' },
+          { key: 'month', label: 'Мес' },
+          { key: 'all', label: 'Все' }
+        ].map((p: any) => (
+          <button 
+            key={p.key} 
+            onClick={() => setPeriod(p.key)} 
+            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${
+              period === p.key 
+                ? 'bg-indigo-600 text-white shadow-md' 
+                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {/* Stats Cards */}
@@ -209,11 +296,110 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* ========================================
-          БЛОК: ЗАКАЗЫ
+          БЛОК: ПОЛЬЗОВАТЕЛИ
       ========================================== */}
       <div className="px-4 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <ShoppingCart size={16} className="text-slate-400" />
+          <User size={16} className="text-emerald-600" />
+          <h3 className="text-[10px] font-black text-slate-400 uppercase">
+            Пользователи ({processedData.usersList.length})
+          </h3>
+        </div>
+
+        <div className="space-y-3">
+          {processedData.usersList.length > 0 ? (
+            processedData.usersList.map((u, i) => (
+              <div 
+                key={i} 
+                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
+              >
+                {/* Шапка */}
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-black text-slate-800">
+                        {u.telegram}
+                      </span>
+                      {(u.telegram.includes('@') || u.telegram.match(/^\d+$/)) && (
+                        <span className="text-[8px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">
+                          TG
+                        </span>
+                      )}
+                    </div>
+                    {u.user !== u.telegram && (
+                      <p className="text-[9px] text-slate-400 font-bold">
+                        {u.user}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Счетчик визитов */}
+                  <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
+                    <Eye size={12} className="text-emerald-600" />
+                    <span className="text-xs font-black text-emerald-600">
+                      {u.visitCount}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Детали */}
+                <div className="space-y-2">
+                  {/* Последний визит */}
+                  <div className="flex items-center justify-between text-[10px] pb-2 border-b border-slate-50">
+                    <span className="text-slate-400 font-bold">Последний визит:</span>
+                    <span className="text-slate-700 font-black">
+                      {formatDate(u.lastVisit)}
+                    </span>
+                  </div>
+
+                  {/* Источник и телефон */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[8px] bg-slate-50 text-slate-600 px-2 py-1 rounded font-bold">
+                      🔗 {u.firstSource}
+                    </span>
+                    
+                    {u.phone && (
+                      <span className="text-[8px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-bold">
+                        📞 {u.phone}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Посещенные страницы */}
+                  {u.pages.length > 0 && (
+                    <div className="pt-2">
+                      <p className="text-[9px] text-slate-400 font-bold mb-1.5">
+                        Посещенные страницы:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {u.pages.map((page, idx) => (
+                          <span 
+                            key={idx}
+                            className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold"
+                          >
+                            {page}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white p-8 rounded-2xl text-center">
+              <p className="text-slate-400 text-sm">Нет пользователей за выбранный период</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================
+          БЛОК: ЗАКАЗЫ
+      ========================================== */}
+      <div className="px-4">
+        <div className="flex items-center gap-2 mb-4">
+          <ShoppingCart size={16} className="text-indigo-600" />
           <h3 className="text-[10px] font-black text-slate-400 uppercase flex-1">
             Заказы ({processedData.ordersList.length})
           </h3>
@@ -280,130 +466,7 @@ const AdminDashboard: React.FC = () => {
             ))
           ) : (
             <div className="bg-white p-8 rounded-2xl text-center">
-              <p className="text-slate-400 text-sm">Нет заказов</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================
-          БЛОК: ВИЗИТЫ (ПОЛЬЗОВАТЕЛИ)
-      ========================================== */}
-      <div className="px-4">
-        <div className="flex items-center gap-2 mb-4">
-          <User size={16} className="text-slate-400" />
-          <h3 className="text-[10px] font-black text-slate-400 uppercase flex-1">
-            Пользователи ({processedData.usersList.length})
-          </h3>
-        </div>
-
-        {/* Фильтры периодов для визитов */}
-        <div className="flex gap-1 mb-4">
-          {[
-            { key: 'today', label: 'День' },
-            { key: '7days', label: '7 Дн' },
-            { key: 'month', label: 'Мес' },
-            { key: 'all', label: 'Все' }
-          ].map((p: any) => (
-            <button 
-              key={p.key} 
-              onClick={() => setVisitsPeriod(p.key)} 
-              className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg border transition-all ${
-                visitsPeriod === p.key 
-                  ? 'bg-emerald-600 text-white shadow-md' 
-                  : 'bg-white text-slate-400 border-slate-100 hover:border-emerald-200'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Список пользователей */}
-        <div className="space-y-3">
-          {processedData.usersList.length > 0 ? (
-            processedData.usersList.map((userStats, i) => (
-              <div 
-                key={i} 
-                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
-              >
-                {/* Шапка: ник + количество визитов */}
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-black text-slate-800">
-                        {userStats.telegram || userStats.user}
-                      </span>
-                      {(userStats.telegram || userStats.user.includes('@')) && (
-                        <span className="text-[8px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">
-                          TG
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Счетчик визитов */}
-                  <div className="flex items-center gap-1">
-                    <Eye size={12} className="text-emerald-500" />
-                    <span className="text-sm font-black text-emerald-600">
-                      {userStats.visitCount}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Детали */}
-                <div className="space-y-2">
-                  {/* Последний визит */}
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400 font-bold">Последний визит:</span>
-                    <span className="text-slate-600 font-black">
-                      {formatDate(userStats.lastVisit)}
-                    </span>
-                  </div>
-
-                  {/* Источник */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] bg-slate-50 text-slate-600 px-2 py-1 rounded font-bold">
-                      🔗 {userStats.firstSource}
-                    </span>
-                    
-                    {/* Телефон */}
-                    {userStats.phone && (
-                      <span className="text-[8px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-bold">
-                        📞 {userStats.phone}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Посещенные страницы */}
-                  {userStats.pages.length > 0 && (
-                    <div className="pt-2 border-t border-slate-50">
-                      <p className="text-[9px] text-slate-400 font-bold mb-1">
-                        Посещенные страницы:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {userStats.pages.slice(0, 3).map((page, idx) => (
-                          <span 
-                            key={idx}
-                            className="text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold"
-                          >
-                            {page}
-                          </span>
-                        ))}
-                        {userStats.pages.length > 3 && (
-                          <span className="text-[8px] text-slate-400 font-bold">
-                            +{userStats.pages.length - 3}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="bg-white p-8 rounded-2xl text-center">
-              <p className="text-slate-400 text-sm">Нет визитов за выбранный период</p>
+              <p className="text-slate-400 text-sm">Нет заказов за выбранный период</p>
             </div>
           )}
         </div>
