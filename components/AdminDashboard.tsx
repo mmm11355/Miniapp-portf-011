@@ -96,21 +96,7 @@ const AdminDashboard: React.FC = () => {
         setSessions(fetchedSessions);
         setOrders(fetchedOrders);
 
-        const now = Date.now();
-        const tenMinutes = 10 * 60 * 1000;
-        const oneHour = 60 * 60 * 1000; 
         
-        fetchedOrders.forEach(async (o: any) => {
-          const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
-          const isPending = sRaw.includes('ожид') || sRaw === 'pending' || sRaw === '';
-          const ts = parseSafeDate(getVal(o, 'date'));
-          const orderId = String(getVal(o, 'orderId') || '');
-
-          if (isPending && ts > 0 && (now - ts) > tenMinutes && (now - ts) < oneHour && orderId && !processedIds.has(orderId)) {
-            processedIds.add(orderId);
-            await analyticsService.updateOrderStatus(orderId, 'failed');
-          }
-        });
       }
       setLastUpdated(new Date().toLocaleTimeString('ru-RU'));
     } catch (e: any) {
@@ -124,28 +110,45 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const filteredStats = useMemo(() => {
+  const { filteredStats, processed } = useMemo(() => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
-    let threshold = 0;
-    if (period === 'today') threshold = now - day;
-    else if (period === '7days') threshold = now - 7 * day;
-    else if (period === 'month') threshold = now - 30 * day;
+    const tenMin = 10 * 60 * 1000;
 
-    const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
-    const filteredOrders = orders.filter(o => period === 'all' || parseSafeDate(getVal(o, 'date')) > threshold);
+    // 1. Сначала готовим все заказы (обрабатываем статусы и 10 минут)
+    const processedOrders = orders.map(o => {
+      const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
+      const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
+      
+      // Используем parseSafeDate, чтобы статистика не ломалась
+      const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
+      const isExpired = (now - orderTime) > tenMin;
 
-    const sessionMap: Record<string, any> = {};
-    filteredSessions.forEach(s => {
-      const sid = String(getVal(s, 'sessionId') || `v-${parseSafeDate(getVal(s, 'date'))}`);
-      if (!sessionMap[sid]) {
-        sessionMap[sid] = { 
-          country: String(getVal(s, 'country') || 'Unknown'), 
-          city: String(getVal(s, 'city') || 'Unknown'),
-          user: String(getVal(s, 'username') || 'Гость')
-        };
-      }
+      const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да';
+      const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
+
+      return { 
+        ...o, 
+        isPaid, 
+        isFailed,
+        orderTime // Сохраняем дату для статистики
+      };
     });
+
+    // 2. Считаем статистику по ПРАВИЛЬНЫМ датам
+    const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : now - 30 * day);
+    
+    const filteredOrders = processedOrders.filter(o => period === 'all' || o.orderTime > threshold);
+    const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
+
+    return {
+      processed: processedOrders, // Это пойдет в список заказов
+      filteredStats: {
+        ordersCount: filteredOrders.length,
+        sessionsCount: filteredSessions.length
+      }
+    };
+  }, [orders, sessions, period]);
 
     const geoStats: Record<string, number> = {};
     Object.values(sessionMap).forEach((s: any) => {
