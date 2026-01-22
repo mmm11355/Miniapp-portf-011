@@ -379,42 +379,91 @@ const App: React.FC = () => {
   return (
     <Layout activeView={view} onNavigate={handleNavigate}>
       {view === 'home' && (
-        <div className="space-y-4 text-center pb-4 page-transition">
-          <div className="relative inline-block mt-2">
-            <img src="https://i.imgur.com/bQ8ic2w.png" className="w-44 h-44 mx-auto rounded-[2.5rem] shadow-2xl border-4 border-white object-cover" />
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
-            <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none mt-1">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">КАСТОМИЗАЦИЯ ЛК, САЙТЫ, СКРИПТЫ, НАСТРОЙКА</p>
-          </div>
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
-            <div className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90"><Trophy size={20} className="text-amber-500" /></div>
-              <span className="text-[13px] font-bold text-slate-700 leading-snug">Победитель Хакатона EdMarket</span>
-            </div>
-            <div className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90"><Award size={20} className="text-indigo-500" /></div>
-              <span className="text-[13px] font-bold text-slate-700 leading-snug">Специалист GetCourse и Prodamus.XL</span>
-            </div>
-            <div className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90"><BriefcaseIcon size={20} className="text-emerald-500" /></div>
-              <span className="text-[13px] font-bold text-slate-700 leading-snug">60+ реализованных проектов</span>
-            </div>
-            <div className="border-t border-slate-50 mt-2 flex items-center gap-2 group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-90"><Globe size={20} className="text-indigo-400" /></div>
-                <span className="text-[13px] font-bold text-slate-700">Сайт-портфолио </span>
-              </div>
-              <span className="text-indigo-600 underline text-[13px] font-black tracking-tight pr-1"> vk.cc/cOx50S</span>
-            </div>
-          </div>
-          <div className="px-2 pt-2">
-            <button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-[0.98] transition-all group overflow-hidden relative">
-              <div className="flex flex-col items-start relative z-10 text-left"><span className="text-[15px] font-black uppercase tracking-widest">Нужна помощь?</span><span className="text-[10px] font-bold opacity-80 uppercase tracking-tight">Связаться в Telegram</span></div><Send size={24} className="relative z-10 opacity-60" /></button>
+  <div className="space-y-6 text-center pb-4 page-transition">
+    {/* 1. ПРОФИЛЬ (Твоя база) */}
+    <div className="relative inline-block mt-4">
+      {/* Мягкое свечение сзади */}
+      <div className="absolute inset-0 bg-indigo-500 blur-[60px] opacity-10 rounded-full"></div>
+      <img src="https://i.imgur.com/bQ8ic2w.png" className="relative w-40 h-40 mx-auto rounded-[3rem] shadow-2xl border-4 border-white object-cover" />
+    </div>
+
+    <div className="space-y-1 px-4">
+      <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Ольга Антонова</h1>
+      <p className="text-[14px] font-black text-indigo-600 uppercase tracking-widest leading-none mt-1">РЕШЕНИЯ GETCOURSE & PRODAMUS.XL</p>
+      
+      {/* СТАТУС-БАР (Новое!) — создает эффект живого присутствия */}
+      <div className="flex justify-center mt-3">
+        <div className="bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+          <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Принимаю заказы на февраль</span>
+        </div>
+      </div>
+    </div>
+
+    {/* 2. ВИДЖЕТ АНАЛИТИКИ ЭКСПЕРТА (Новое!) */}
+    <div className="grid grid-cols-3 gap-2 px-2">
+      {[
+        { label: 'Проектов', val: '60+' },
+        { label: 'Опыт', val: '3 года' },
+        { label: 'Рейтинг', val: '5.0' }
+      ].map((s, i) => (
+        <div key={i} className="bg-white p-3 rounded-[1.5rem] border border-slate-50 shadow-sm">
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">{s.label}</p>
+          <p className="text-sm font-black text-slate-900 leading-none">{s.val}</p>
+        </div>
+      ))}
+    </div>
+
+    {/* 3. ДОСТИЖЕНИЯ (Твой список, но в единой карточке) */}
+    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-50 text-left space-y-4 mx-2">
+      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-2 pl-1">Достижения и навыки</p>
+      
+      <div className="flex items-center gap-3 group">
+        <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><Trophy size={18} className="text-amber-500" /></div>
+        <span className="text-[13px] font-bold text-slate-700">Победитель Хакатона EdMarket</span>
+      </div>
+      
+      <div className="flex items-center gap-3 group">
+        <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0"><Award size={18} className="text-indigo-500" /></div>
+        <span className="text-[13px] font-bold text-slate-700">Специалист GetCourse & Prodamus.XL</span>
+      </div>
+
+      <div className="pt-2 border-t border-slate-50 flex items-center justify-between group cursor-pointer" onClick={() => window.open('https://vk.cc/cOx50S', '_blank')}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shrink-0 text-white"><Globe size={18} /></div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1 tracking-tighter">Портфолио</p>
+            <span className="text-[13px] font-bold text-slate-700">vk.cc/cOx50S</span>
           </div>
         </div>
-      )}
+        <ArrowRight size={16} className="text-slate-300 group-active:translate-x-1 transition-transform" />
+      </div>
+    </div>
+
+    {/* 4. КНОПКА СВЯЗИ (Контрастный вариант) */}
+    <div className="px-2">
+      <button 
+        onClick={() => window.open('https://t.me/Olga_lav', '_blank')} 
+        className="w-full bg-slate-900 text-white p-5 rounded-[2rem] flex items-center justify-between shadow-xl active:scale-[0.96] transition-all group relative overflow-hidden"
+      >
+        <div className="flex items-center gap-4 relative z-10 text-left">
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+            <Send size={22} className="text-white" />
+          </div>
+          <div>
+            <span className="text-[15px] font-black uppercase tracking-tight block">Нужна помощь?</span>
+            <span className="text-[10px] font-bold opacity-50 uppercase tracking-widest">Написать Ольге в ТГ</span>
+          </div>
+        </div>
+        <div className="bg-indigo-600 p-2 rounded-full relative z-10 mr-1">
+          <ChevronRight size={20} />
+        </div>
+        {/* Декоративный блик на кнопке */}
+        <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent group-hover:left-[100%] transition-all duration-1000"></div>
+      </button>
+    </div>
+  </div>
+)}
 
       
   {view === 'portfolio' && (
