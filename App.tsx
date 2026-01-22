@@ -74,84 +74,73 @@ const Linkify = ({ text }: { text: string }) => {
   // ПРОВЕРКА ДОСТУПА: сравниваем ID как строки
   const hasAccess = userPurchasedIds?.map(String).includes(String(product.id)) || product.isFree === true;
 
- return (
-  <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44 animate-in slide-in-from-bottom duration-500">
-    {/* ШАПКА — теперь в едином стиле */}
-    <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-5 py-4 border-b border-slate-50 flex items-center justify-between">
-      <button 
-        onClick={onClose} 
-        className="flex items-center gap-2 text-slate-400 active:scale-95 transition-all"
-      >
-        <div className="w-9 h-9 bg-slate-50 rounded-[10px] flex items-center justify-center border border-slate-100">
-          <ArrowLeft size={18} strokeWidth={2.5} />
-        </div>
-        <span className="text-[11px] font-bold uppercase tracking-tight text-slate-500">Назад</span>
-      </button>
+ 
+ return (
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44">
+      {/* ШАПКА СО СТРЕЛКОЙ */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
+        <button onClick={onClose} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors">
+          <span className="text-2xl leading-none">←</span>
+          <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
+        </button>
+        <div className="flex items-center gap-2">
+           <div className="w-7 h-7 bg-indigo-600 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
+           <div className="text-[10px] font-black uppercase text-slate-400 leading-tight text-right">О ГЕТКУРС <br/><span className="text-[8px] font-medium">и не только</span></div>
+        </div>
+      </div>
 
-      <div className="flex items-center gap-2">
-         <div className="w-8 h-8 bg-indigo-500 rounded-[8px] flex items-center justify-center text-white text-[10px] font-bold shadow-sm">OA</div>
-         <div className="text-[9px] font-bold uppercase text-slate-400 leading-tight text-right">
-           О ГЕТКУРС <br/>
-           <span className="text-[8px] font-medium opacity-70">и не только</span>
-         </div>
-      </div>
-    </div>
+      <div className="max-w-2xl mx-auto px-6 pt-8">
+        <h1 className="text-[17px] font-black text-slate-900 mb-6 leading-tight uppercase tracking-tight">
+          {product.title}
+        </h1>
 
-    <div className="max-w-2xl mx-auto px-6 pt-8">
-      {/* Заголовок стал нежнее */}
-      <h1 className="text-xl font-bold text-slate-800 mb-6 leading-tight uppercase tracking-tight">
-        {product.title}
-      </h1>
+        <div className="mb-6">
+           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" />
+        </div>
 
-      <div className="mb-8">
-         <img 
-           src={product.imageUrl} 
-           className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" 
-           alt=""
-         />
-      </div>
+        <div className="text-[16px] text-slate-700 leading-relaxed">
+          {renderContent(product.detailFullDescription || product.description)}
+        
+        </div>
+      </div>
 
-      {/* Основной текст */}
-      <div className="text-[15px] text-slate-600 leading-relaxed font-medium space-y-4">
-        {renderContent(product.detailFullDescription || product.description)}
-      </div>
-    </div>
-
-    {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
-    <div className="fixed bottom-0 left-0 right-0 px-6 py-8 z-[110] bg-gradient-to-t from-white via-white to-transparent pointer-events-none">
-      <div className="max-w-2xl mx-auto pointer-events-auto">
-       {hasAccess ? (
-          <button 
-            onClick={() => {
-              onClose();
-              if (typeof onNavigate === 'function') {
-                onNavigate('account');
-              }
-            }}
-            style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#6366f1' }}
-            className="w-full py-4.5 rounded-[10px] text-white font-bold text-[12px] uppercase tracking-wider shadow-lg shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <CheckCircle size={18} />
-            ОТКРЫТЬ В КАБИНЕТЕ
-          </button>
-        ) : (
-          <button 
-            onClick={() => {
-              if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
-              else onCheckout(product);
-            }}
-            style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#6366f1' }} 
-            className="w-full py-4.5 rounded-[10px] text-white font-bold text-[12px] uppercase tracking-wider shadow-lg shadow-indigo-100 active:scale-[0.97] transition-all"
-          >
-            {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
-            {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
-          </button>
-        )}
-      </div>
-    </div>
-  </div>
-);
-  };        
+    {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+     {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
+        <div className="max-w-2xl mx-auto">
+         {hasAccess ? (
+            <button 
+              onClick={() => {
+                onClose();
+                if (typeof onNavigate === 'function') {
+                  onNavigate('account');
+                }
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              ОТКРЫТЬ В КАБИНЕТЕ
+            </button>
+          ) : (
+            <button 
+              onClick={() => {
+                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
+                else onCheckout(product);
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
+            >
+              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
+              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
+            </button>
+        
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
     
 
 // Вспомогательный компонент для отображения картинок/видео
