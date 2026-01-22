@@ -520,6 +520,76 @@ const App: React.FC = () => {
     </div>
   </div>
 )}
+     
+      
+      
+      {view === 'shop' && (
+  <div className="space-y-4 page-transition animate-in fade-in duration-500">
+    {/* Категории — добавил проверку, чтобы не ломалось */}
+    <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 px-2">
+      <button 
+        onClick={() => setFilter('All')} 
+        className={`px-4 py-2 rounded-[10px] text-[10px] font-bold uppercase border transition-all shrink-0 ${
+          filter === 'All' ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-white text-slate-400 border-slate-100'
+        }`}
+      >
+        Все
+      </button>
+      {/* Безопасный вывод категорий */}
+      {typeof categories !== 'undefined' && categories.map(c => (
+        <button 
+          key={c} 
+          onClick={() => setFilter(c)} 
+          className={`px-4 py-2 rounded-[10px] text-[10px] font-bold uppercase border transition-all shrink-0 ${
+            filter === c ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-white text-slate-400 border-slate-100'
+          }`}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+    
+    <div className="grid gap-4 px-2 mt-2">
+      {/* Безопасный вывод товаров */}
+      {typeof filteredProducts !== 'undefined' && filteredProducts.length > 0 ? (
+        filteredProducts.map(p => (
+          <div 
+            key={p.id} 
+            style={{ backgroundColor: p.cardBgColor || '#ffffff' }} 
+            className="p-4 rounded-[10px] border border-slate-100 shadow-sm space-y-3 relative"
+          >
+            <div className="flex justify-between items-start gap-4">
+              <h3 style={{ color: p.titleColor || '#1e293b' }} className="text-[14px] font-bold leading-tight">
+                {p.title}
+              </h3>
+              <span className="text-[14px] font-bold text-slate-800 whitespace-nowrap">{p.price} ₽</span>
+            </div>
+
+            <MediaRenderer 
+              url={p.imageUrl} 
+              type={p.mediaType} 
+              className="w-full aspect-video object-cover rounded-[8px] shadow-sm cursor-pointer" 
+              onClick={() => handleNavigate('shop', p)} 
+            />
+
+            <button 
+              onClick={() => handleNavigate('shop', p)} 
+              style={{ backgroundColor: p.buttonColor || '#6366f1' }} 
+              className="w-full py-3.5 rounded-[8px] text-white font-bold text-[10px] uppercase tracking-widest active:scale-[0.97] transition-all shadow-md shadow-indigo-100"
+            >
+              {p.buttonText || 'Подробнее'}
+            </button>
+          </div>
+        ))
+      ) : (
+        <div className="text-center py-10 text-slate-400 text-xs uppercase font-bold tracking-widest">
+          Загрузка товаров...
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
       
   {view === 'account' && (
   <div className="space-y-4 page-transition -mt-2 animate-in fade-in duration-500">
