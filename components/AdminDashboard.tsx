@@ -125,8 +125,9 @@ const AdminDashboard: React.FC = () => {
       const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да' || psRaw === 'yes';
       const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
 
-      // Логика ника: ищем во всех возможных полях
-      const nick = o.username || o.tgusername || o.tg_username || getVal(o, 'username');
+     // Логика ника: ищем во всех возможных полях таблицы
+      const rawNick = o.username || o.tgusername || o.tg_username || getVal(o, 'username') || getVal(o, 'ник');
+      const userId = o.userId || o.id || getVal(o, 'orderId');
 
       return { 
         ...o, 
@@ -138,7 +139,11 @@ const AdminDashboard: React.FC = () => {
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
-        dUser: nick ? `@${String(nick).replace('@', '')}` : 'Без ника',
+        // Если rawNick - это число или его нет, а userId есть, показываем ID. 
+        // Если есть нормальный текст - показываем как ник.
+        dUser: rawNick && isNaN(Number(rawNick)) 
+          ? `@${String(rawNick).replace('@', '')}` 
+          : (userId ? `ID: ${userId}` : 'Без ника'),
         dDate: rawDate || '---'
       };
     });
