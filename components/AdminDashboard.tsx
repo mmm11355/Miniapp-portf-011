@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Activity, Users, CreditCard } from 'lucide-react';
+import { RefreshCw, Activity } from 'lucide-react';
 
 const WEBHOOK = 'https://script.google.com/macros/s/AKfycbwXmgT1Xxfl1J4Cfv8crVMFeJkhQbT7AfVOYpYfM8cMXKEVLP6-nh4z8yrTRiBrvgW1/exec';
 
 const AdminDashboard: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<'today' | '7days' | 'month' | 'all'>('all');
   const [activeTab, setActiveTab] = useState<'active' | 'archive'>('active');
 
-  // Утилита для поиска значения в объекте (игнорирует регистр)
+  // Поиск значения без учета регистра
   const getVal = (obj: any, key: string) => {
     if (!obj) return '';
     const lowKey = key.toLowerCase();
@@ -18,16 +18,17 @@ const AdminDashboard: React.FC = () => {
     return foundKey ? obj[foundKey] : (obj[key] || '');
   };
 
+  // Парсинг вашей даты "22.01.2026, 13:20:03"
   const parseSafeDate = (val: any): number => {
     if (!val) return 0;
     const s = String(val).trim();
+    if (/^\d+$/.test(s)) return Number(s); // если пришел таймстамп числом
     const m = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
     if (m) {
       const time = s.split(',')[1]?.trim() || '00:00:00';
       return new Date(`${m[3]}-${m[2]}-${m[1]}T${time}`).getTime();
     }
-    const d = new Date(s).getTime();
-    return isNaN(d) ? 0 : d;
+    return new Date(s).getTime() || 0;
   };
 
   const fetchData = async (silent = false) => {
@@ -36,9 +37,9 @@ const AdminDashboard: React.FC = () => {
       const res = await fetch(`${WEBHOOK}?action=getStats&_t=${Date.now()}`);
       const data = await res.json();
       setSessions(data.sessions || []);
-      setOrders(data.leads || data.orders || []);
+      setLeads(data.leads || []);
     } catch (e) {
-      console.error('Ошибка сети');
+      console.error('Ошибка загрузки');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -50,112 +51,136 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(i);
   }, []);
 
-  // 1. Тот самый рабочий блок обработки
-  const { filteredStats, processed } = useMemo(() => {
+  const { stats, processedLeads, activity } = useMemo(() => {
     const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
     const tenMin = 10 * 60 * 1000;
+    
+    let threshold = 0;
+    if (period === 'today') threshold = startOfToday;
+    else if (period === '7days') threshold = now - 7 * 86400000;
+    else if (period === 'month') threshold = now - 30 * 86400000;
 
-    const processedOrders = orders.map(o => {
-      const sRaw = String(getVal(o, 'статус') || getVal(o, 'status') || '').toLowerCase().trim();
-      const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
-      
-      const orderTime = parseSafeDate(getVal(o, 'дата') || getVal(o, 'date') || getVal(o, 'timestamp'));
-      const isExpired = (now - orderTime) > tenMin;
-
-      const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да';
-      const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
-
-      return { 
-        ...o, 
-        isPaid, 
-        isFailed,
-        orderTime,
-        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : 'Новый'),
-        dTitle: getVal(o, 'товар') || getVal(o, 'title') || 'Заказ',
-        dPrice: getVal(o, 'сумма') || getVal(o, 'price') || 0,
-        dName: getVal(o, 'email') || getVal(o, 'name') || 'Гость',
-        dDate: getVal(o, 'дата') || getVal(o, 'date') || '---'
-      };
+    // 1. Фильтруем сессии и собираем ники (АКТИВНОСТЬ)
+    const filteredSessions = sessions.filter(s => {
+      const ts = parseSafeDate(getVal(s, 'Дата') || getVal(s, 'date'));
+      return period === 'all' || ts >= threshold;
     });
 
-    const threshold = period === 'today' ? new Date().setHours(0,0,0,0) : (period === '7days' ? now - 7 * day : now - 30 * day);
-    
-    const fOrders = processedOrders.filter(o => period === 'all' || o.orderTime >= threshold);
-    const fSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'дата') || getVal(s, 'date')) >= threshold);
+    const nicksMap: Record<string, number> = {};
+    filteredSessions.forEach(s => {
+      const name = getVal(s, 'Имя') || getVal(s, 'Email') || 'Гость';
+      nicksMap[name] = (nicksMap[name] || 0) + 1;
+    });
+
+    // 2. Обрабатываем заказы (LEADS)
+    const mappedLeads = leads.map(l => {
+      const ts = parseSafeDate(getVal(l, 'timestamp') || getVal(l, 'Дата'));
+      const status = String(getVal(l, 'PaymentStatus') || '').toLowerCase();
+      const isPaid = status === 'да' || status.includes('оплат');
+      const isExpired = (now - ts) > tenMin;
+      const isFailed = status.includes('отмен') || (isExpired && !isPaid);
+
+      return {
+        ...l,
+        ts,
+        isPaid,
+        isFailed,
+        dTitle: getVal(l, 'productTitle') || 'Заказ',
+        dPrice: getVal(l, 'price') || 0,
+        dUser: getVal(l, 'customerEmail') || 'Гость'
+      };
+    }).filter(l => period === 'all' || l.ts >= threshold);
 
     return {
-      processed: processedOrders,
-      filteredStats: {
-        ordersCount: fOrders.length,
-        sessionsCount: fSessions.length,
-        paidCount: fOrders.filter(o => o.isPaid).length
-      }
+      stats: {
+        visits: filteredSessions.length,
+        paid: mappedLeads.filter(l => l.isPaid).length
+      },
+      activity: Object.entries(nicksMap).sort((a, b) => b[1] - a[1]).slice(0, 15),
+      processedLeads: mappedLeads
     };
-  }, [orders, sessions, period]);
+  }, [sessions, leads, period]);
 
-  const list = processed.filter(o => 
-    activeTab === 'active' ? (!o.isFailed || o.isPaid) : o.isFailed
+  const displayList = processedLeads.filter(l => 
+    activeTab === 'active' ? (!l.isFailed || l.isPaid) : l.isFailed
   );
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white pb-10 font-sans text-slate-900">
-      {/* Шапка */}
-      <div className="p-6 flex justify-between items-center border-b border-slate-100">
-        <h1 className="text-[12px] font-black uppercase tracking-widest text-indigo-600">Admin Panel</h1>
-        <button onClick={() => fetchData()} className="p-2 bg-slate-50 rounded-full">
-          <RefreshCw size={20} className={loading ? 'animate-spin text-indigo-500' : 'text-slate-400'} />
+    <div className="max-w-md mx-auto min-h-screen bg-[#F8FAFC] pb-20 font-sans">
+      {/* Header */}
+      <div className="p-6 flex justify-between items-center bg-white border-b">
+        <h1 className="text-xs font-bold uppercase tracking-widest text-slate-400">Панель управления</h1>
+        <button onClick={() => fetchData()} className="p-2 active:scale-95 transition-transform">
+          <RefreshCw size={20} className={`${loading ? 'animate-spin' : ''} text-indigo-600`} />
         </button>
       </div>
 
-      {/* Кнопки периода */}
-      <div className="flex p-2 gap-1">
+      {/* Фильтр по датам */}
+      <div className="flex p-4 gap-2 bg-white mb-4 border-b">
         {(['today', '7days', 'month', 'all'] as const).map(p => (
-          <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all ${period === p ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}`}>
+          <button key={p} onClick={() => setPeriod(p)} 
+            className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border transition-all 
+            ${period === p ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white text-slate-400 border-slate-100'}`}>
             {p === 'today' ? 'День' : p === '7days' ? '7 Дн' : p === 'month' ? 'Мес' : 'Все'}
           </button>
         ))}
       </div>
 
-      {/* Цифры - ЖИРНЫЕ */}
-      <div className="grid grid-cols-2 gap-4 px-4 py-4">
-        <div className="bg-slate-900 p-6 rounded-[32px] text-white">
-          <p className="text-[10px] font-bold opacity-60 uppercase mb-1">Визиты</p>
-          <p className="text-4xl font-black">{filteredStats.sessionsCount}</p>
+      {/* Статистика */}
+      <div className="grid grid-cols-2 gap-4 px-4 mb-6">
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Визиты</span>
+          <div className="text-3xl font-bold text-slate-900 mt-1">{stats.visits}</div>
         </div>
-        <div className="bg-emerald-500 p-6 rounded-[32px] text-white">
-          <p className="text-[10px] font-bold opacity-60 uppercase mb-1">Оплаты</p>
-          <p className="text-4xl font-black">{filteredStats.paidCount}</p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Оплаты</span>
+          <div className="text-3xl font-bold text-emerald-500 mt-1">{stats.paid}</div>
         </div>
       </div>
 
-      {/* Вкладки */}
-      <div className="px-4 mt-4">
+      {/* Блок активности - НИКИ ВЕРНУЛИСЬ */}
+      <div className="mx-4 bg-white rounded-3xl p-5 border border-slate-100 mb-6">
+        <div className="flex items-center gap-2 mb-4 border-b pb-2">
+          <Activity size={14} className="text-indigo-500" />
+          <h2 className="text-[10px] font-bold uppercase text-slate-400">Кто заходил (Ники)</h2>
+        </div>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {activity.map(([name, count], i) => (
+            <div key={i} className="flex justify-between items-center text-xs">
+              <span className="font-medium text-slate-600 truncate mr-2">{name}</span>
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-bold">{count}</span>
+            </div>
+          ))}
+          {activity.length === 0 && <p className="text-[10px] text-slate-300 italic">За этот период никто не заходил</p>}
+        </div>
+      </div>
+
+      {/* Список транзакций */}
+      <div className="px-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-widest">Список заказов</h3>
-          <div className="flex bg-slate-100 p-1 rounded-2xl">
-            <button onClick={() => setActiveTab('active')} className={`px-5 py-2 rounded-xl text-[10px] font-black ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>АКТИВ</button>
-            <button onClick={() => setActiveTab('archive')} className={`px-5 py-2 rounded-xl text-[10px] font-black ${activeTab === 'archive' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}>АРХИВ</button>
+          <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Заказы ({displayList.length})</h3>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${activeTab === 'active' ? 'bg-white text-indigo-600' : 'text-slate-400'}`}>АКТИВ</button>
+            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${activeTab === 'archive' ? 'bg-white text-rose-500' : 'text-slate-400'}`}>АРХИВ</button>
           </div>
         </div>
 
-        {/* Карточки заказов */}
-        <div className="space-y-4">
-          {list.map((o, i) => (
-            <div key={i} className="bg-white p-5 rounded-[28px] border-2 border-slate-50 shadow-sm">
-              <div className="flex justify-between items-start mb-3">
-                <h4 className="text-[14px] font-black text-slate-800 pr-4 leading-tight">{o.dTitle}</h4>
-                <span className="text-[15px] font-black text-slate-900">{o.dPrice} ₽</span>
+        <div className="space-y-3">
+          {displayList.map((l, i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-bold text-slate-800 line-clamp-1">{l.dTitle}</span>
+                <span className="text-sm font-black text-slate-900">{l.dPrice} ₽</span>
               </div>
-              <div className="flex justify-between items-center border-t border-slate-50 pt-3">
-                <span className="text-[11px] font-bold text-indigo-500 truncate max-w-[160px]">{o.dName}</span>
-                <span className={`text-[10px] font-black px-3 py-1 rounded-lg uppercase ${o.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {o.pLabel}
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-indigo-500 font-bold">{l.dUser}</span>
+                <span className={`px-2 py-0.5 rounded uppercase font-black ${l.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                  {l.isPaid ? 'Оплачено' : 'Ожидание'}
                 </span>
               </div>
             </div>
           ))}
-          {list.length === 0 && <p className="text-center py-10 text-slate-300 font-bold text-xs">Нет данных</p>}
         </div>
       </div>
     </div>
