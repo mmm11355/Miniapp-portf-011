@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { RefreshCw, Clock, CheckCircle, AlertCircle, MapPin, Settings, Trash2, Users, ChevronRight } from 'lucide-react';
-import { analyticsService } from '../services/analyticsService';
 
 type Period = 'today' | '7days' | 'month' | 'all';
 
@@ -45,7 +44,7 @@ const AdminDashboard: React.FC = () => {
       'date': ['timestamp', 'дата', 'date', 'время', 'starttime'],
       'city': ['city', 'город'],
       'country': ['country', 'страна'],
-      'username': ['username', 'tgusername', 'ник'],
+      'username': ['username', 'tgusername', 'ник', 'user'],
       'orderId': ['orderid', 'id']
     };
     const searchKeys = aliases[key] || [key];
@@ -103,7 +102,7 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const { filteredStats, processed, visits } = useMemo(() => {
+  const { filteredStats, processed } = useMemo(() => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const tenMin = 10 * 60 * 1000;
@@ -113,7 +112,7 @@ const AdminDashboard: React.FC = () => {
       const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
       const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
       const isExpired = (now - orderTime) > tenMin;
-      const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да';
+      const isPaid = sRaw.includes('оплат') || sRaw.includes('success') || psRaw === 'да' || psRaw === 'yes';
       const isFailed = /(отмен|архив|fail|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
 
       return { 
@@ -126,32 +125,28 @@ const AdminDashboard: React.FC = () => {
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
-        dUser: getVal(o, 'username') || getVal(o, 'tgusername') || 'Гость',
+        dUser: getVal(o, 'username') ? `@${getVal(o, 'username').replace('@', '')}` : 'Без ника',
         dDate: getVal(o, 'date') || '---'
       };
     });
 
-    const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : now - 30 * day);
-    const filteredOrders = processedOrders.filter(o => period === 'all' || o.orderTime > threshold);
-    const filteredSessions = (sessions || []).filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
+    const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : period === 'month' ? now - 30 * day : 0);
+    
+    const ordersInPeriod = processedOrders.filter(o => o.orderTime >= threshold);
+    const sessionsInPeriod = (sessions || []).filter(s => parseSafeDate(getVal(s, 'date')) >= threshold);
 
     const geoStats = {};
-    filteredSessions.forEach(s => {
+    sessionsInPeriod.forEach(s => {
       const city = getVal(s, 'city') || 'Не определен';
       geoStats[city] = (geoStats[city] || 0) + 1;
     });
 
-   return {
+    return {
       processed: processedOrders,
-      visits: filteredSessions.length, // Берём прямо из отфильтрованных сессий
       filteredStats: {
-        visits: filteredSessions.length,
-        paidCount: filteredOrders.filter(o => {
-          const s = String(getVal(o, 'status') || '').toLowerCase();
-          const ps = String(getVal(o, 'PaymentStatus') || '').toLowerCase();
-          return s.includes('оплат') || s.includes('success') || ps === 'да';
-        }).length,
-        allOrders: filteredOrders,
+        visits: sessionsInPeriod.length,
+        paidCount: ordersInPeriod.filter(o => o.isPaid).length,
+        allOrders: ordersInPeriod,
         geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
     };
