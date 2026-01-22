@@ -26,32 +26,15 @@ const AdminDashboard: React.FC = () => {
     return DEFAULTS;
   });
 
-  // 1. УМНЫЙ ПАРСЕР ДАТЫ (ДЛЯ ФОРМАТА 21.01.2025)
-  const parseDateToMs = (val: any): number => {
-    if (!val) return 0;
-    const s = String(val).trim();
-    // Ищем формат ДД.ММ.ГГГГ
-    const match = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (match) {
-      const [_, d, m, y] = match;
-      const timePart = s.split(',')[1]?.trim() || '00:00:00';
-      // Собираем в формате, который поймет любой браузер: YYYY/MM/DD HH:mm:ss
-      return new Date(`${y}/${m}/${d} ${timePart}`).getTime();
-    }
-    const ts = Date.parse(s);
-    return isNaN(ts) ? 0 : ts;
-  };
-
-  // 2. УНИВЕРСАЛЬНЫЙ ПОИСК КОЛОНОК (RU/EN)
+  // 1. Поиск значений (поддержка разных имен колонок из твоих скринов)
   const getVal = (obj: any, key: string) => {
     if (!obj) return '';
     const aliases: Record<string, string[]> = {
       'title': ['товар', 'название', 'product', 'title'],
-      'price': ['сумма', 'цена', 'стоимость', 'amount', 'price'],
-      'status': ['статус', 'состояние', 'status'],
-      'name': ['имя', 'клиент', 'фио', 'name', 'user'],
-      'date': ['дата', 'время', 'timestamp', 'date'],
-      'city': ['город', 'city']
+      'price': ['сумма', 'цена', 'amount', 'price'],
+      'status': ['статус', 'состояние', 'status', 'paymentstatus'],
+      'name': ['имя', 'клиент', 'email', 'name', 'user'], // Email часто содержит ник
+      'date': ['дата', 'время', 'timestamp', 'date']
     };
     const searchKeys = aliases[key] || [key];
     const objKeys = Object.keys(obj);
@@ -62,11 +45,29 @@ const AdminDashboard: React.FC = () => {
     return obj[key] || '';
   };
 
-  // 3. ПОИСК НИКА С СИМВОЛОМ @
+  // 2. Исправленный парсер даты (для формата 22.01.2026)
+  const parseSafeDate = (val: any): number => {
+    if (!val) return 0;
+    const s = String(val).trim();
+    const parts = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (parts) {
+      const [_, d, m, y] = parts;
+      const timePart = s.split(',')[1]?.trim() || '00:00:00';
+      // Создаем объект даты через YYYY/MM/DD для стабильности
+      const dObj = new Date(`${y}/${m}/${d} ${timePart}`);
+      return dObj.getTime() || 0;
+    }
+    return new Date(s).getTime() || 0;
+  };
+
+  // 3. Красивое извлечение НИКА
   const extractNick = (obj: any) => {
-    const rawName = String(getVal(obj, 'name') || '');
-    const match = rawName.match(/(@[A-Za-z0-9_]+)/);
-    return match ? match[1] : (rawName.split(' ')[0] || 'Гость');
+    const raw = String(getVal(obj, 'name') || '');
+    const nickMatch = raw.match(/(@[A-Za-z0-9_]+)/);
+    if (nickMatch) return nickMatch[1];
+    const idMatch = raw.match(/^\d+/);
+    if (idMatch && raw.includes(' ')) return raw.split(' ').slice(1).join(' ');
+    return raw || 'Гость';
   };
 
   const fetchData = async (silent = false) => {
@@ -79,7 +80,9 @@ const AdminDashboard: React.FC = () => {
         setOrders(data.orders || data.data?.orders || (Array.isArray(data) ? data : []));
       }
       setLastUpdated(new Date().toLocaleTimeString('ru-RU'));
-    } catch (e) {} finally { if (!silent) setLoading(false); }
+    } catch (e) {
+      console.error("Fetch error:", e);
+    } finally { if (!silent) setLoading(false); }
   };
 
   useEffect(() => { 
@@ -89,17 +92,19 @@ const AdminDashboard: React.FC = () => {
   }, [config.googleSheetWebhook]);
 
   const { filteredStats, processed } = useMemo(() => {
-    const now = Date.now();
-    const todayStart = new Date().setHours(0,0,0,0);
-    
+    const nowTs = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const startOfToday = new Date().setHours(0,0,0,0);
+
     const processedOrders = (orders || []).map(o => {
       const stat = String(getVal(o, 'status')).toLowerCase();
-      const orderTs = parseDateToMs(getVal(o, 'date'));
-      const isPaid = stat.includes('оплат') || stat.includes('success');
+      const timeTs = parseSafeDate(getVal(o, 'date'));
+      const isPaid = stat.includes('оплат') || stat.includes('success') || stat === 'да';
       const isFailed = /(отмен|архив|fail|истек|нет)/i.test(stat);
 
       return { 
-        ...o, isPaid, isFailed, orderTs,
+        ...o, isPaid, isFailed, timeTs,
+        pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
         pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : 'Новый'),
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
@@ -109,26 +114,29 @@ const AdminDashboard: React.FC = () => {
     });
 
     let threshold = 0;
-    if (period === 'today') threshold = todayStart;
-    else if (period === '7days') threshold = now - 7 * 86400000;
-    else if (period === 'month') threshold = now - 30 * 86400000;
+    if (period === 'today') threshold = startOfToday;
+    else if (period === '7days') threshold = nowTs - 7 * dayMs;
+    else if (period === 'month') threshold = nowTs - 30 * dayMs;
 
-    const ordersInPeriod = processedOrders.filter(o => period === 'all' || o.orderTs >= threshold);
-    const sessionsInPeriod = (sessions || []).filter(s => parseDateToMs(getVal(s, 'date')) >= threshold);
+    const fOrders = processedOrders.filter(o => period === 'all' || o.timeTs >= threshold);
+    const fSessions = (sessions || []).filter(s => {
+      const ts = parseSafeDate(getVal(s, 'date'));
+      return period === 'all' || ts >= threshold;
+    });
 
-    const geoStats = {};
-    sessionsInPeriod.forEach(s => {
-      const nick = extractNick(s);
-      geoStats[nick] = (geoStats[nick] || 0) + 1;
+    const nicks = {};
+    fSessions.forEach(s => {
+      const n = extractNick(s);
+      nicks[n] = (nicks[n] || 0) + 1;
     });
 
     return {
       processed: processedOrders,
       filteredStats: {
-        visits: sessionsInPeriod.length,
-        paidCount: ordersInPeriod.filter(o => o.isPaid).length,
-        allOrders: ordersInPeriod,
-        geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
+        visits: fSessions.length,
+        paidCount: fOrders.filter(o => o.isPaid).length,
+        allOrders: fOrders,
+        geo: Object.entries(nicks).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
     };
   }, [orders, sessions, period]);
@@ -138,68 +146,70 @@ const AdminDashboard: React.FC = () => {
   }, [processed, activeTab]);
 
   return (
-    <div className="space-y-6 max-w-md mx-auto pb-10 px-2 pt-4">
+    <div className="space-y-6 max-w-md mx-auto pb-10 px-2 pt-4 bg-slate-50/50 min-h-screen">
       <div className="flex justify-between items-center px-2">
-        <h2 className="text-[14px] font-black uppercase text-slate-500 tracking-widest">Панель управления</h2>
+        <h2 className="text-[14px] font-black uppercase text-slate-400 tracking-widest">Панель управления</h2>
         <div className="flex gap-2">
-          <button onClick={() => setShowConfig(!showConfig)} className="p-2 bg-slate-100 rounded-lg text-slate-400"><Settings size={18} /></button>
-          <button onClick={() => fetchData()} className="p-2 bg-slate-100 rounded-lg text-slate-400"><RefreshCw size={18} className={loading ? 'animate-spin' : ''}/></button>
+          <button onClick={() => setShowConfig(!showConfig)} className="p-2 bg-white shadow-sm rounded-xl text-slate-400"><Settings size={18} /></button>
+          <button onClick={() => fetchData()} className="p-2 bg-white shadow-sm rounded-xl text-slate-400"><RefreshCw size={18} className={loading ? 'animate-spin' : ''}/></button>
         </div>
       </div>
 
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+      <div className="flex bg-white/80 backdrop-blur p-1.5 rounded-2xl shadow-sm border border-white mx-1">
         {['today', '7days', 'month', 'all'].map((p) => (
-          <button key={p} onClick={() => setPeriod(p as Period)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
+          <button key={p} onClick={() => setPeriod(p as Period)} className={`flex-1 py-2 rounded-xl text-[11px] font-black uppercase transition-all ${period === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'}`}>
             {p === 'today' ? 'День' : p === '7days' ? '7 Дн' : p === 'month' ? 'Мес' : 'Всё'}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-50">
+      <div className="grid grid-cols-2 gap-4 px-1">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white">
           <p className="text-[11px] font-black text-slate-400 uppercase mb-1">Визиты</p>
-          <p className="text-2xl font-black text-slate-800">{filteredStats.visits}</p>
+          <p className="text-3xl font-black text-slate-800 tracking-tight">{filteredStats.visits}</p>
+          <div className="w-full h-1 bg-indigo-50 rounded-full mt-3 overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{width: '60%'}} /></div>
         </div>
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-50">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white">
           <p className="text-[11px] font-black text-slate-400 uppercase mb-1">Оплаты</p>
-          <p className="text-2xl font-black text-emerald-500">{filteredStats.paidCount}</p>
+          <p className="text-3xl font-black text-emerald-500 tracking-tight">{filteredStats.paidCount}</p>
+          <div className="w-full h-1 bg-emerald-50 rounded-full mt-3 overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{width: filteredStats.paidCount > 0 ? '100%' : '0%'}} /></div>
         </div>
       </div>
 
-      <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-50">
-        <h3 className="text-[12px] font-black uppercase text-slate-400 mb-4 flex gap-2"><MapPin size={16}/> Активность по никам</h3>
-        <div className="space-y-3">
-          {filteredStats.geo.map(([nick, count]) => (
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-white mx-1">
+        <h3 className="text-[12px] font-black uppercase text-slate-400 mb-6 flex gap-2"><MapPin size={16} className="text-indigo-500"/> Активность по никам</h3>
+        <div className="space-y-4">
+          {filteredStats.geo.length > 0 ? filteredStats.geo.map(([nick, count]) => (
             <div key={nick}>
-              <div className="flex justify-between text-[13px] font-bold text-slate-600"><span>{nick}</span><span>{count}</span></div>
-              <div className="w-full h-1.5 bg-slate-50 rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-indigo-300" style={{width: `${(count/Math.max(filteredStats.visits, 1))*100}%`}} />
+              <div className="flex justify-between text-[13px] font-bold text-slate-700 mb-1"><span>{nick}</span><span className="text-indigo-600">{count}</span></div>
+              <div className="w-full h-1.5 bg-slate-50 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-400 rounded-full" style={{width: `${(count/Math.max(filteredStats.visits, 1))*100}%`}} />
               </div>
             </div>
-          ))}
+          )) : <p className="text-center text-slate-300 py-4 font-bold uppercase text-[10px]">Нет данных за период</p>}
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 px-1">
         <div className="flex justify-between items-center px-1">
           <h3 className="text-[12px] font-black uppercase text-slate-400">Заказы ({filteredStats.allOrders.length})</h3>
-          <div className="flex bg-slate-100 rounded-xl p-1">
-            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${activeTab === 'active' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}>АКТИВ</button>
-            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${activeTab === 'archive' ? 'bg-white shadow-sm text-rose-500' : 'text-slate-400'}`}>АРХИВ</button>
+          <div className="flex bg-white rounded-xl p-1 shadow-sm border border-white">
+            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${activeTab === 'active' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400'}`}>АКТИВ</button>
+            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black ${activeTab === 'archive' ? 'bg-rose-50 text-rose-500' : 'text-slate-400'}`}>АРХИВ</button>
           </div>
         </div>
         
         {displayList.map((o, i) => (
-          <div key={i} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-50">
+          <div key={i} className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-white mb-4">
             <div className="flex justify-between items-start mb-2">
               <div className="max-w-[70%]">
-                <h4 className="font-black text-slate-800 text-[14px] leading-tight">{o.dTitle}</h4>
-                <p className="text-indigo-500 font-bold text-[12px] mt-1">{o.dUser}</p>
+                <h4 className="font-black text-slate-800 text-[14px] leading-tight mb-1">{o.dTitle}</h4>
+                <p className="text-indigo-500 font-bold text-[12px]">{o.dUser}</p>
               </div>
-              <div className="font-black text-[15px]">{o.dPrice} ₽</div>
+              <div className="font-black text-[16px] text-slate-900">{o.dPrice} ₽</div>
             </div>
-            <div className="flex justify-between items-center pt-3 border-t border-slate-50 text-[10px] font-black uppercase tracking-widest">
-              <span className={o.pLabel === 'Оплачено' ? 'text-emerald-500' : 'text-amber-500'}>{o.pLabel}</span>
+            <div className="flex justify-between items-center pt-4 border-t border-slate-50 text-[10px] font-black uppercase tracking-widest mt-2">
+              <span className={o.pStatus === 'paid' ? 'text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md' : 'text-amber-500 bg-amber-50 px-2 py-1 rounded-md'}>{o.pLabel}</span>
               <span className="text-slate-300">{String(o.dDate).split(',')[0]}</span>
             </div>
           </div>
