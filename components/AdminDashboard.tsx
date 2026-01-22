@@ -10,7 +10,6 @@ const AdminDashboard: React.FC = () => {
   const [period, setPeriod] = useState<'today' | '7days' | 'month' | 'all'>('all');
   const [activeTab, setActiveTab] = useState<'active' | 'archive'>('active');
 
-  // Поиск значения без учета регистра
   const getVal = (obj: any, key: string) => {
     if (!obj) return '';
     const lowKey = key.toLowerCase();
@@ -18,11 +17,9 @@ const AdminDashboard: React.FC = () => {
     return foundKey ? obj[foundKey] : (obj[key] || '');
   };
 
-  // Парсинг вашей даты "22.01.2026, 13:20:03"
   const parseSafeDate = (val: any): number => {
     if (!val) return 0;
     const s = String(val).trim();
-    if (/^\d+$/.test(s)) return Number(s); // если пришел таймстамп числом
     const m = s.match(/(\d{2})\.(\d{2})\.(\d{4})/);
     if (m) {
       const time = s.split(',')[1]?.trim() || '00:00:00';
@@ -39,7 +36,7 @@ const AdminDashboard: React.FC = () => {
       setSessions(data.sessions || []);
       setLeads(data.leads || []);
     } catch (e) {
-      console.error('Ошибка загрузки');
+      console.error('Data error');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -51,133 +48,96 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(i);
   }, []);
 
-  const { stats, processedLeads, activity } = useMemo(() => {
+  const { stats, displayList, activity } = useMemo(() => {
     const now = Date.now();
     const startOfToday = new Date().setHours(0, 0, 0, 0);
-    const tenMin = 10 * 60 * 1000;
-    
     let threshold = 0;
     if (period === 'today') threshold = startOfToday;
     else if (period === '7days') threshold = now - 7 * 86400000;
     else if (period === 'month') threshold = now - 30 * 86400000;
 
-    // 1. Фильтруем сессии и собираем ники (АКТИВНОСТЬ)
-    const filteredSessions = sessions.filter(s => {
+    const fSessions = sessions.filter(s => {
       const ts = parseSafeDate(getVal(s, 'Дата') || getVal(s, 'date'));
       return period === 'all' || ts >= threshold;
     });
 
-    const nicksMap: Record<string, number> = {};
-    filteredSessions.forEach(s => {
+    const nicks: Record<string, number> = {};
+    fSessions.forEach(s => {
       const name = getVal(s, 'Имя') || getVal(s, 'Email') || 'Гость';
-      nicksMap[name] = (nicksMap[name] || 0) + 1;
+      nicks[name] = (nicks[name] || 0) + 1;
     });
 
-    // 2. Обрабатываем заказы (LEADS)
-    const mappedLeads = leads.map(l => {
+    const fLeads = leads.map(l => {
       const ts = parseSafeDate(getVal(l, 'timestamp') || getVal(l, 'Дата'));
       const status = String(getVal(l, 'PaymentStatus') || '').toLowerCase();
       const isPaid = status === 'да' || status.includes('оплат');
-      const isExpired = (now - ts) > tenMin;
-      const isFailed = status.includes('отмен') || (isExpired && !isPaid);
-
-      return {
-        ...l,
-        ts,
-        isPaid,
-        isFailed,
-        dTitle: getVal(l, 'productTitle') || 'Заказ',
-        dPrice: getVal(l, 'price') || 0,
-        dUser: getVal(l, 'customerEmail') || 'Гость'
-      };
+      const isFailed = status.includes('отмен') || (!isPaid && (now - ts) > 600000);
+      return { ...l, ts, isPaid, isFailed };
     }).filter(l => period === 'all' || l.ts >= threshold);
 
     return {
-      stats: {
-        visits: filteredSessions.length,
-        paid: mappedLeads.filter(l => l.isPaid).length
-      },
-      activity: Object.entries(nicksMap).sort((a, b) => b[1] - a[1]).slice(0, 15),
-      processedLeads: mappedLeads
+      stats: { sessions: fSessions.length, paid: fLeads.filter(l => l.isPaid).length },
+      activity: Object.entries(nicks).sort((a, b) => b[1] - a[1]).slice(0, 10),
+      displayList: fLeads.filter(l => activeTab === 'active' ? (!l.isFailed || l.isPaid) : l.isFailed)
     };
-  }, [sessions, leads, period]);
-
-  const displayList = processedLeads.filter(l => 
-    activeTab === 'active' ? (!l.isFailed || l.isPaid) : l.isFailed
-  );
+  }, [sessions, leads, period, activeTab]);
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#F8FAFC] pb-20 font-sans">
-      {/* Header */}
-      <div className="p-6 flex justify-between items-center bg-white border-b">
-        <h1 className="text-xs font-bold uppercase tracking-widest text-slate-400">Панель управления</h1>
-        <button onClick={() => fetchData()} className="p-2 active:scale-95 transition-transform">
-          <RefreshCw size={20} className={`${loading ? 'animate-spin' : ''} text-indigo-600`} />
-        </button>
+    <div className="max-w-md mx-auto min-h-screen bg-slate-50 font-sans pb-10">
+      <div className="p-6 bg-white border-b flex justify-between items-center">
+        <h1 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</h1>
+        <button onClick={() => fetchData()}><RefreshCw size={18} className={loading ? 'animate-spin' : 'text-indigo-600'} /></button>
       </div>
 
-      {/* Фильтр по датам */}
-      <div className="flex p-4 gap-2 bg-white mb-4 border-b">
-        {(['today', '7days', 'month', 'all'] as const).map(p => (
-          <button key={p} onClick={() => setPeriod(p)} 
-            className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border transition-all 
-            ${period === p ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white text-slate-400 border-slate-100'}`}>
+      <div className="flex p-2 bg-white gap-1 mb-4">
+        {['today', '7days', 'month', 'all'].map((p: any) => (
+          <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg border ${period === p ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border-slate-100'}`}>
             {p === 'today' ? 'День' : p === '7days' ? '7 Дн' : p === 'month' ? 'Мес' : 'Все'}
           </button>
         ))}
       </div>
 
-      {/* Статистика */}
       <div className="grid grid-cols-2 gap-4 px-4 mb-6">
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Визиты</span>
-          <div className="text-3xl font-bold text-slate-900 mt-1">{stats.visits}</div>
+        <div className="bg-white p-5 rounded-3xl border border-slate-100">
+          <p className="text-[10px] font-black text-slate-400 uppercase">Визиты</p>
+          <p className="text-3xl font-black text-slate-900">{stats.sessions}</p>
         </div>
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Оплаты</span>
-          <div className="text-3xl font-bold text-emerald-500 mt-1">{stats.paid}</div>
+        <div className="bg-white p-5 rounded-3xl border border-slate-100">
+          <p className="text-[10px] font-black text-slate-400 uppercase">Оплаты</p>
+          <p className="text-3xl font-black text-emerald-500">{stats.paid}</p>
         </div>
       </div>
 
-      {/* Блок активности - НИКИ ВЕРНУЛИСЬ */}
       <div className="mx-4 bg-white rounded-3xl p-5 border border-slate-100 mb-6">
-        <div className="flex items-center gap-2 mb-4 border-b pb-2">
-          <Activity size={14} className="text-indigo-500" />
-          <h2 className="text-[10px] font-bold uppercase text-slate-400">Кто заходил (Ники)</h2>
-        </div>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {activity.map(([name, count], i) => (
-            <div key={i} className="flex justify-between items-center text-xs">
-              <span className="font-medium text-slate-600 truncate mr-2">{name}</span>
-              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-bold">{count}</span>
+        <h2 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-2"><Activity size={14}/> Активность</h2>
+        <div className="space-y-2">
+          {activity.map(([n, c]) => (
+            <div key={n} className="flex justify-between text-xs font-bold border-b border-slate-50 pb-1">
+              <span className="text-slate-600 truncate max-w-[180px]">{n}</span>
+              <span className="text-indigo-600">{c}</span>
             </div>
           ))}
-          {activity.length === 0 && <p className="text-[10px] text-slate-300 italic">За этот период никто не заходил</p>}
         </div>
       </div>
 
-      {/* Список транзакций */}
       <div className="px-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Заказы ({displayList.length})</h3>
+          <h3 className="text-[10px] font-black text-slate-400 uppercase">Заказы ({displayList.length})</h3>
           <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${activeTab === 'active' ? 'bg-white text-indigo-600' : 'text-slate-400'}`}>АКТИВ</button>
-            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${activeTab === 'archive' ? 'bg-white text-rose-500' : 'text-slate-400'}`}>АРХИВ</button>
+            <button onClick={() => setActiveTab('active')} className={`px-4 py-1 text-[10px] font-black rounded-lg ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>АКТИВ</button>
+            <button onClick={() => setActiveTab('archive')} className={`px-4 py-1 text-[10px] font-black rounded-lg ${activeTab === 'archive' ? 'bg-white text-rose-500' : 'text-slate-400'}`}>АРХИВ</button>
           </div>
         </div>
-
         <div className="space-y-3">
           {displayList.map((l, i) => (
-            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-bold text-slate-800 line-clamp-1">{l.dTitle}</span>
-                <span className="text-sm font-black text-slate-900">{l.dPrice} ₽</span>
+            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-100">
+              <div className="flex justify-between mb-1">
+                <span className="text-xs font-black text-slate-800">{getVal(l, 'productTitle') || 'Заказ'}</span>
+                <span className="text-xs font-black">{getVal(l, 'price') || 0} ₽</span>
               </div>
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="text-indigo-500 font-bold">{l.dUser}</span>
-                <span className={`px-2 py-0.5 rounded uppercase font-black ${l.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                  {l.isPaid ? 'Оплачено' : 'Ожидание'}
-                </span>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-indigo-500">{getVal(l, 'customerEmail') || 'Гость'}</span>
+                <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${l.isPaid ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{l.isPaid ? 'Оплачено' : 'Ждем'}</span>
               </div>
             </div>
           ))}
