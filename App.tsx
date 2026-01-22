@@ -579,15 +579,17 @@ const App: React.FC = () => {
   </div>
 )}
       
-     {view === 'account' && (
-  <div className="space-y-4 page-transition -mt-2">
-    <div className="py-8 text-center mb-2 px-4 flex flex-col items-center">
-      <h2 className="text-[28px] font-black text-slate-900 uppercase tracking-tight leading-none">ЛИЧНЫЙ КАБИНЕТ</h2>
+  {view === 'account' && (
+  <div className="space-y-4 page-transition -mt-2 animate-in fade-in duration-500">
+    {/* ЗАГОЛОВОК И КНОПКА ОБНОВЛЕНИЯ */}
+    <div className="pt-6 pb-2 text-center px-4 flex flex-col items-center">
+      <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Личный кабинет</h2>
       
-      {/* Кнопка теперь передает актуальный ID пользователя при нажатии */}
       <button 
         onClick={() => fetchUserAccess(userIdentifier, "")} 
-        className={`mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full border border-slate-100 shadow-sm transition-all active:scale-90 ${isRefreshingAccess ? 'bg-indigo-50 text-indigo-400' : 'bg-white text-slate-400'}`}
+        className={`mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-[10px] border border-slate-100 shadow-sm transition-all active:scale-95 ${
+          isRefreshingAccess ? 'bg-indigo-50 text-indigo-500' : 'bg-white text-slate-400'
+        }`}
       >
         <RefreshCw size={12} className={isRefreshingAccess ? 'animate-spin' : ''} />
         {isRefreshingAccess ? 'Обновляем...' : 'Обновить доступы'}
@@ -595,35 +597,38 @@ const App: React.FC = () => {
     </div>
 
     {purchasedProducts.length === 0 ? (
-      /* ЭКРАН ПУСТОГО СПИСКА — если в таблице ничего не найдено */
-      <div className="bg-white rounded-[3.5rem] border border-slate-100 p-12 shadow-sm mx-1 flex flex-col items-center text-center space-y-10 min-h-[460px] justify-center">
-        <div className="w-24 h-24 bg-[#f8fafc] rounded-3xl flex items-center justify-center border border-slate-50 shadow-inner">
-          <Lock size={32} className="text-slate-200" strokeWidth={1.5} />
+      /* ЭКРАН ПУСТОГО СПИСКА — в новом нежном стиле */
+      <div className="bg-white rounded-[10px] border border-slate-100 p-10 shadow-sm mx-2 flex flex-col items-center text-center space-y-6 min-h-[300px] justify-center">
+        <div className="w-16 h-16 bg-slate-50 rounded-[10px] flex items-center justify-center border border-slate-100/50">
+          <Lock size={24} className="text-slate-200" strokeWidth={1.5} />
         </div>
-        <div className="space-y-5">
-          <h3 className="text-[18px] font-black text-slate-400 uppercase tracking-[0.2em]">СПИСОК ПУСТ</h3>
-          <p className="text-[13px] font-medium text-slate-300 leading-relaxed max-w-[280px]">
-            Здесь будут ваши материалы. Если доступ прописан в таблице, но не появился — нажмите кнопку выше.
+        <div className="space-y-2">
+          <h3 className="text-[14px] font-bold text-slate-400 uppercase tracking-widest">Список пуст</h3>
+          <p className="text-[11px] font-medium text-slate-300 leading-relaxed max-w-[240px] mx-auto text-balance">
+            Ваши материалы появятся здесь после оплаты. Если доступ прописан, но не появился — обновите страницу кнопкой выше.
           </p>
         </div>
       </div>
     ) : (
-      /* СПИСОК ТОВАРОВ — которые ты разрешила в таблице */
-      <div className="grid gap-3 px-1">
+      /* СПИСОК ТОВАРОВ — компактный и стильный */
+      <div className="grid gap-2 px-2">
+        <p className="ml-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ваши доступы</p>
         {purchasedProducts.map(p => (
           <div 
             key={p.id} 
-            className="bg-white p-5 rounded-[2.5rem] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-[0.97] transition-all cursor-pointer" 
+            className="bg-white p-3 rounded-[10px] border border-slate-50 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer group" 
             onClick={() => setActiveSecretProduct(p)}
           >
-            <img src={p.imageUrl} className="w-16 h-16 rounded-2xl object-cover shadow-sm" />
+            <img src={p.imageUrl} className="w-14 h-14 rounded-[8px] object-cover shadow-sm" alt="" />
             <div className="flex-grow">
-              <h3 className="text-sm font-bold text-slate-800 leading-tight mb-1">{p.title}</h3>
-              <div className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+              <h3 className="text-[13px] font-bold text-slate-700 leading-tight mb-0.5 group-hover:text-indigo-600 transition-colors">
+                {p.title}
+              </h3>
+              <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-1">
                 <CheckCircle size={10} /> Изучить материал
               </div>
             </div>
-            <ChevronRight size={18} className="text-slate-200" />
+            <ChevronRight size={16} className="text-slate-200 group-hover:text-indigo-300 transition-all" />
           </div>
         ))}
       </div>
