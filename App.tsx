@@ -5,6 +5,7 @@ import { ViewState, Product, TelegramConfig } from './types';
 import { INITIAL_PRODUCTS, ADMIN_PASSWORD } from './constants';
 import { analyticsService, getDetailedTgUser } from './services/analyticsService';
 import { Award, Zap, MessageCircle, ArrowRight, Star, Trophy, Globe, BriefcaseIcon, Send, ChevronRight, RefreshCw, CheckCircle, Lock } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ... } from 'lucide-react';
 
 import {
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
@@ -76,70 +77,69 @@ const Linkify = ({ text }: { text: string }) => {
 
  
  return (
-    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44">
-      {/* ШАПКА СО СТРЕЛКОЙ */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
-        <button onClick={onClose} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors">
-          <span className="text-2xl leading-none">←</span>
-          <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
-        </button>
-        <div className="flex items-center gap-2">
-           <div className="w-7 h-7 bg-indigo-600 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
-           <div className="text-[10px] font-black uppercase text-slate-400 leading-tight text-right">О ГЕТКУРС <br/><span className="text-[8px] font-medium">и не только</span></div>
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44">
+      {/* ШАПКА СО СТРЕЛКОЙ */}
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
+        <button onClick={onClose} className="flex items-center gap-2 text-slate-400 active:scale-95 transition-all">
+          <div className="w-9 h-9 bg-slate-50 rounded-[10px] flex items-center justify-center border border-slate-100">
+            <ArrowLeft size={18} strokeWidth={2.5} />
+          </div>
+          <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
+        </button>
+        <div className="flex items-center gap-2">
+           <div className="w-7 h-7 bg-indigo-500 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
+           <div className="text-[10px] font-bold uppercase text-slate-400 leading-tight text-right">О ГЕТКУРС <br/><span className="text-[8px] font-medium opacity-70">и не только</span></div>
+        </div>
+      </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-8">
-        <h1 className="text-[17px] font-black text-slate-900 mb-6 leading-tight uppercase tracking-tight">
-          {product.title}
-        </h1>
+      <div className="max-w-2xl mx-auto px-6 pt-8">
+        <h1 className="text-[18px] font-bold text-slate-800 mb-6 leading-tight uppercase tracking-tight">
+          {product.title}
+        </h1>
 
-        <div className="mb-6">
-           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" />
-        </div>
+        <div className="mb-6">
+           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-sm border border-slate-50" />
+        </div>
 
-        <div className="text-[16px] text-slate-700 leading-relaxed">
-          {renderContent(product.detailFullDescription || product.description)}
-        
-        </div>
-      </div>
+        <div className="text-[15px] text-slate-600 leading-relaxed font-medium">
+          {renderContent(product.detailFullDescription || product.description)}
+        </div>
+      </div>
 
-    {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
-     {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
-      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
-        <div className="max-w-2xl mx-auto">
-         {hasAccess ? (
-            <button 
-              onClick={() => {
-                onClose();
-                if (typeof onNavigate === 'function') {
-                  onNavigate('account');
-                }
-              }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
-              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={18} />
-              ОТКРЫТЬ В КАБИНЕТЕ
-            </button>
-          ) : (
-            <button 
-              onClick={() => {
-                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
-                else onCheckout(product);
-              }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
-              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
-            >
-              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
-              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
-            </button>
-        
-          )}
-        </div>
-      </div>
-    </div>
-  );
+      {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
+        <div className="max-w-2xl mx-auto">
+         {hasAccess ? (
+            <button 
+              onClick={() => {
+                onClose();
+                if (typeof onNavigate === 'function') {
+                  onNavigate('account');
+                }
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              ОТКРЫТЬ В КАБИНЕТЕ
+            </button>
+          ) : (
+            <button 
+              onClick={() => {
+                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
+                else onCheckout(product);
+              }}
+              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
+              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
+            >
+              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
+              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
     
 
