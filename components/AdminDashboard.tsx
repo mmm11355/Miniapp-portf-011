@@ -126,7 +126,7 @@ const AdminDashboard: React.FC = () => {
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
-        dUser: getVal(o, 'username') || '',
+        dUser: getVal(o, 'username') || getVal(o, 'tgusername') || 'Гость',
         dDate: getVal(o, 'date') || '---'
       };
     });
@@ -141,12 +141,16 @@ const AdminDashboard: React.FC = () => {
       geoStats[city] = (geoStats[city] || 0) + 1;
     });
 
-    return {
+   return {
       processed: processedOrders,
-      visits: filteredSessions.length,
+      visits: filteredSessions.length, // Берём прямо из отфильтрованных сессий
       filteredStats: {
         visits: filteredSessions.length,
-        paidCount: filteredOrders.filter(o => o.isPaid).length,
+        paidCount: filteredOrders.filter(o => {
+          const s = String(getVal(o, 'status') || '').toLowerCase();
+          const ps = String(getVal(o, 'PaymentStatus') || '').toLowerCase();
+          return s.includes('оплат') || s.includes('success') || ps === 'да';
+        }).length,
         allOrders: filteredOrders,
         geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
