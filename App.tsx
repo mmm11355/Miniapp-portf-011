@@ -767,53 +767,57 @@ const App: React.FC = () => {
   
 {/* МОДАЛКА ДЛЯ КУПЛЕННЫХ ТОВАРОВ */}
 {activeSecretProduct && (
-  <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto">
+  <div className="fixed inset-0 z-[8000] bg-white overflow-y-auto animate-in slide-in-from-right duration-300">
+    {/* ШАПКА — стала чище */}
     <div className="p-4 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-50">
-      <button onClick={() => setActiveSecretProduct(null)} className="p-2 bg-slate-100 rounded-full text-slate-600 active:scale-90 transition-all">
-        <ChevronLeft size={24} />
+      <button 
+        onClick={() => setActiveSecretProduct(null)} 
+        className="w-10 h-10 bg-slate-50 rounded-[10px] flex items-center justify-center text-slate-500 active:scale-90 transition-all"
+      >
+        <ChevronLeft size={20} />
       </button>
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ваш доступ</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Ваш доступ</span>
       <div className="w-10" />
     </div>
 
-    <div className="p-6 space-y-8">
-      {/* Изображение товара */}
-      <img src={activeSecretProduct.imageUrl} className="w-full aspect-video object-cover rounded-[2.5rem] shadow-xl" />
+    <div className="p-5 space-y-6 pb-10">
+      {/* Изображение товара — теперь 10px */}
+      <img 
+        src={activeSecretProduct.imageUrl} 
+        className="w-full aspect-video object-cover rounded-[10px] shadow-md border border-slate-50" 
+        alt=""
+      />
       
       <div className="space-y-2">
-        <h2 className="text-2 font-black text-slate-900 leading-tight uppercase tracking-tighter">
+        <h2 className="text-xl font-bold text-slate-800 leading-tight uppercase tracking-tight">
           {activeSecretProduct.title}
         </h2>
-        <div className="flex items-center gap-2 text-indigo-500 font-bold text-[10px] uppercase tracking-widest">
+        <div className="flex items-center gap-2 text-emerald-500 font-bold text-[10px] uppercase tracking-widest">
           <ShieldCheck size={14} /> Материал разблокирован
         </div>
       </div>
 
-      {/* Описание и ссылки из колонки U (secretContent) */}
-      <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shadow-inner">
-        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Инструкции и ссылки:</h4>
-        <div className="text-slate-700 text-[14px] leading-relaxed font-medium whitespace-pre-wrap">
-          {/* Безопасное отображение текста */}
-          
-         <div 
-  className="text-slate-700 text-[14px] leading-relaxed font-medium whitespace-pre-wrap"
-  dangerouslySetInnerHTML={{ 
-    __html: (activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится...")
-      .replace(
-        /(https?:\/\/[^\s]+)/g, 
-        '<a href="$1" target="_blank" style="color:#4f46e5; text-decoration:underline; font-weight:bold; word-break:break-all;">$1</a>'
-      ) 
-  }} 
-/>
-          
-        </div>
+      {/* Описание и ссылки (secretContent) — блок стал аккуратным */}
+      <div className="bg-slate-50/50 rounded-[10px] p-5 border border-slate-100">
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Инструкции и ссылки:</h4>
+        <div 
+          className="text-slate-600 text-[14px] leading-relaxed font-medium whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ 
+            __html: (activeSecretProduct.secretContent || activeSecretProduct.SecretContent || "Контент скоро появится...")
+              .replace(
+                /(https?:\/\/[^\s]+)/g, 
+                '<a href="$1" target="_blank" style="color:#6366f1; text-decoration:underline; font-weight:600; word-break:break-all;">$1</a>'
+              ) 
+          }} 
+        />
       </div>
 
+      {/* Кнопка закрытия — заменили черный на нежный сланец */}
       <button 
         onClick={() => setActiveSecretProduct(null)}
-        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+        className="w-full py-4 bg-slate-100 text-slate-500 rounded-[10px] font-bold uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
       >
-        Вернуться назад
+        Вернуться в кабинет
       </button>
     </div>
   </div>
