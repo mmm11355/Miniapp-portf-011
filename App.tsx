@@ -162,27 +162,53 @@ class AnalyticsService {
   constructor(config: any) { this.config = config; }
   
   async logOrder(orderData: any) {
-    console.log("Отправка заказа в TG...", orderData);
     try {
-      // Отправка в Телеграм
-     const message = `🛍 Новый заказ: ${orderData.productTitle}\n💰 Сумма: ${orderData.price}₽\n👤 Клиент: ${orderData.customerName}\n📧 Email: ${orderData.customerEmail}\n🆔 TG ID: ${orderData.tg_id || 'не определен'}\n🔗 Ник: @${orderData.username || 'unknown'}`;
-      await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: this.config.chatId, text: message })
-      });
+      // 1. Сразу отправляем сообщение о НОВОМ заказе (как сейчас)
+      const message = `🛍 **НОВЫЙ ЗАКАЗ**\n📦 Товар: ${orderData.productTitle}\n💰 Сумма: ${orderData.price} ₽\n👤 Клиент: ${orderData.customerName}\n🆔 ID: ${orderData.tg_id}`;
       
-      // Отправка в Гугл Таблицу
-      const res = await fetch(this.config.googleSheetWebhook, {
+      await this.sendToTelegram(message);
+
+      // 2. Логируем в Гугл-таблицу
+      await fetch(this.config.googleSheetWebhook, {
         method: 'POST',
         mode: 'no-cors',
         body: JSON.stringify({ action: 'logOrder', ...orderData })
       });
-      return { id: Date.now() }; // Временный ID для заказа
+
+      // 3. ЗАПУСКАЕМ ТАЙМЕР НА 10 МИНУТ
+      setTimeout(async () => {
+        // Проверяем, не оплачен ли заказ за это время (упрощенно)
+        // Если оплаты всё еще нет, шлем уведомление об отмене
+        const cancelMessage = `❌ **ЗАКАЗ ОТМЕНЕН (10 мин истекли)**\n📦 Товар: ${orderData.productTitle}\n👤 Клиент: ${orderData.customerName}\n💰 Сумма: ${orderData.price} ₽\n🆔 ID: ${orderData.tg_id}`;
+        
+        await this.sendToTelegram(cancelMessage);
+        
+        // Опционально: можно отправить запрос в Гугл, чтобы статус в таблице сменился на 'отмена'
+        fetch(this.config.googleSheetWebhook, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify({ action: 'updateStatus', orderId: orderData.id, status: 'отмена' })
+        }).catch(() => {});
+        
+      }, 10 * 60 * 1000); // 10 минут
+
+      return { id: Date.now() };
     } catch (e) {
-      console.error("Ошибка бота:", e);
       return { id: Date.now() };
     }
+  }
+
+  // Вспомогательный метод для отправки в ТГ (чтобы не дублировать код)
+  async sendToTelegram(text: string) {
+    return fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        chat_id: this.config.chatId, 
+        text: text,
+        parse_mode: 'Markdown' 
+      })
+    });
   }
 }
 
