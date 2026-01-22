@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { RefreshCw, Clock, CheckCircle, AlertCircle, MapPin, Settings, Trash2, Users, ChevronRight } from 'lucide-react';
 import { analyticsService } from '../services/analyticsService';
@@ -20,9 +19,6 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'archive'>('active');
   const [period, setPeriod] = useState<Period>('all'); 
   const [showConfig, setShowConfig] = useState(false);
-  
-  // Локальное хранилище обработанных ID, чтобы не спамить в бот
-  const [processedIds] = useState(() => new Set<string>());
   
   const [config, setConfig] = useState(() => {
     try {
@@ -92,11 +88,8 @@ const AdminDashboard: React.FC = () => {
       if (data) {
         const fetchedSessions = data.sessions || data.data?.sessions || [];
         const fetchedOrders = data.orders || data.data?.orders || (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
-        
         setSessions(fetchedSessions);
         setOrders(fetchedOrders);
-
-        
       }
       setLastUpdated(new Date().toLocaleTimeString('ru-RU'));
     } catch (e: any) {
@@ -110,7 +103,7 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-const { filteredStats, processed, visits } = useMemo(() => {
+  const { filteredStats, processed, visits } = useMemo(() => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const tenMin = 10 * 60 * 1000;
@@ -133,6 +126,7 @@ const { filteredStats, processed, visits } = useMemo(() => {
         dTitle: getVal(o, 'title') || 'Заказ',
         dPrice: getVal(o, 'price') || 0,
         dName: getVal(o, 'name') || 'Гость',
+        dUser: getVal(o, 'username') || '',
         dDate: getVal(o, 'date') || '---'
       };
     });
@@ -151,9 +145,9 @@ const { filteredStats, processed, visits } = useMemo(() => {
       processed: processedOrders,
       visits: filteredSessions.length,
       filteredStats: {
-        ordersCount: filteredOrders.length,
-        sessionsCount: filteredSessions.length,
-        revenue: filteredOrders.filter(o => o.isPaid).reduce((sum, o) => sum + Number(o.dPrice), 0),
+        visits: filteredSessions.length,
+        paidCount: filteredOrders.filter(o => o.isPaid).length,
+        allOrders: filteredOrders,
         geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
     };
@@ -168,7 +162,6 @@ const { filteredStats, processed, visits } = useMemo(() => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10 max-w-md mx-auto">
-      {/* Header */}
       <div className="flex justify-between items-center px-1">
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse" />
@@ -189,7 +182,6 @@ const { filteredStats, processed, visits } = useMemo(() => {
         </div>
       )}
 
-      {/* Period Selector */}
       <div className="flex bg-slate-200/40 p-1.5 rounded-2xl mx-1">
         {(['today', '7days', 'month', 'all'] as Period[]).map((p) => (
           <button key={p} onClick={() => setPeriod(p)} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase transition-all ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
@@ -198,7 +190,6 @@ const { filteredStats, processed, visits } = useMemo(() => {
         ))}
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-4 px-1">
         <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
           <p className="text-[13px] font-black text-slate-400 uppercase mb-2">Визиты</p>
@@ -210,7 +201,6 @@ const { filteredStats, processed, visits } = useMemo(() => {
         </div>
       </div>
 
-      {/* Geo */}
       <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm mx-1">
         <h3 className="text-[14px] font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-3">
           <MapPin size={18} className="text-rose-400" /> География визитов
@@ -230,7 +220,6 @@ const { filteredStats, processed, visits } = useMemo(() => {
         </div>
       </div>
 
-      {/* Orders */}
       <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-[14px] font-black uppercase tracking-widest text-slate-400">Заказы ({filteredStats.allOrders.length})</h3>
