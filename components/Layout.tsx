@@ -19,26 +19,33 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
   ];
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] flex flex-col max-w-md mx-auto relative border-x border-slate-100 overflow-x-hidden">
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[1500] bg-white/90 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col max-w-md mx-auto relative overflow-x-hidden">
+      
+      {/* ШАПКА — стала чище и нежнее */}
+      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[1500] bg-white/80 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('home')}>
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-black text-[12px] shadow-lg shadow-indigo-100">ОА</div>
+          {/* Убрали жесткий градиент, сделали нежный индиго */}
+          <div className="w-10 h-10 bg-indigo-500 rounded-[10px] flex items-center justify-center text-white font-bold text-[12px] shadow-md shadow-indigo-100">
+            ОА
+          </div>
           <div className="flex flex-col">
-             <span className="font-bold text-slate-900 text-[14px] tracking-tight uppercase leading-none">О ГЕТКУРС</span>
-             <span className="font-bold text-indigo-500 text-[12px] tracking-widest uppercase mt-1">И НЕ ТОЛЬКО</span>
+             <span className="font-bold text-slate-800 text-[14px] tracking-tight uppercase leading-none">О ГЕТКУРС</span>
+             <span className="font-bold text-indigo-400 text-[11px] tracking-widest uppercase mt-1">И НЕ ТОЛЬКО</span>
           </div>
         </div>
-        <button onClick={() => onNavigate('admin')} className={`p-2.5 transition-all rounded-xl ${activeView === 'admin' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}>
-          <ShieldCheck size={22} strokeWidth={2.5} />
+        
+        {/* Кнопка админа теперь тоже в мягком стиле */}
+        <button onClick={() => onNavigate('admin')} className={`p-2 transition-all rounded-[10px] ${activeView === 'admin' ? 'bg-indigo-50 text-indigo-500' : 'text-slate-300'}`}>
+          <ShieldCheck size={20} strokeWidth={2} />
         </button>
       </header>
 
-      <main className="flex-grow pt-[74px] pb-28 px-5">
+      <main className="flex-grow pt-[74px] pb-28 px-4">
         {children}
       </main>
 
-      {/* Навигация всегда сверху всех модальных окон кроме критических */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-100 grid grid-cols-5 h-20 px-2 z-[5000] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      {/* НИЖНЕЕ МЕНЮ — теперь парящее и нежное */}
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-[400px] bg-white/90 backdrop-blur-md border border-slate-100 grid grid-cols-5 h-18 py-2 z-[5000] rounded-[15px] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
@@ -46,12 +53,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
             <button
               key={item.id}
               onClick={() => onNavigate(item.id as ViewState)}
-              className="flex flex-col items-center justify-center gap-1 transition-all active:scale-90"
+              className="flex flex-col items-center justify-center transition-all active:scale-90"
             >
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-400'}`}>
-                <Icon size={20} strokeWidth={2} />
+              <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-all ${isActive ? 'bg-indigo-50 text-indigo-500' : 'text-slate-300'}`}>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
               </div>
-              <span className={`text-[8px] font-black tracking-widest uppercase ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
+              <span className={`text-[8px] font-bold tracking-tight uppercase mt-1 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
                 {item.label}
               </span>
             </button>
