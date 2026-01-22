@@ -153,23 +153,33 @@ const AdminDashboard: React.FC = () => {
       geoStats[key] = (geoStats[key] || 0) + 1;
     });
 
-    const processed = filteredOrders.map(o => {
-      const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
-      const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
-      // Расширенный список признаков отмены
-      const isFailed = /(отмен|архив|fail|archiv|отказ|отклон|cancel|удал|reject|decline|error|ошибка|истек|expire|not|unpaid|нет|пусто)/i.test(sRaw);
-      
-      return { 
-        ...o, 
-        pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
-        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание оплаты' : 'Новый')),
-        dTitle: getVal(o, 'title') || 'Заказ',
-        dPrice: getVal(o, 'price') || 0,
-        dName: getVal(o, 'name') || 'Гость',
-        dUser: getVal(o, 'username') || '',
-        dDate: getVal(o, 'date') || '---'
-      };
-    });
+   const processed = filteredOrders.map(o => {
+  const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
+  
+  // 1. Считаем время заказа
+  const orderTime = new Date(getVal(o, 'date') || getVal(o, 'timestamp')).getTime();
+  const now = Date.now();
+  const isExpired = (now - orderTime) > (10 * 60 * 1000); // прошло ли 10 минут
+
+  // 2. Условия оплаты и отмены
+  const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
+  
+  // Продвинутая логика: заказ считается Failed, если он отменен ИЛИ если прошло 10 минут без оплаты
+  const isFailed = /(отмен|архив|fail|отказ|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
+
+  return {
+    ...o,
+    isPaid,
+    isFailed,
+    pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
+    pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание оплаты' : 'Новый')),
+    dTitle: getVal(o, 'title') || 'Заказ',
+    dPrice: getVal(o, 'price') || 0,
+    dName: getVal(o, 'name') || 'Гость',
+    dUser: getVal(o, 'username') || '',
+    dDate: getVal(o, 'date') || '---'
+  };
+});
 
     return {
       visits: Object.keys(sessionMap).length,
