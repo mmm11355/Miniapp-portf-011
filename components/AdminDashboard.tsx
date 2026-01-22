@@ -110,12 +110,12 @@ const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
- const { filteredStats, processed, visits } = useMemo(() => {
+const { filteredStats, processed, visits } = useMemo(() => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
     const tenMin = 10 * 60 * 1000;
 
-    const processedOrders = orders.map(o => {
+    const processedOrders = (orders || []).map(o => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
       const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
@@ -139,13 +139,12 @@ const AdminDashboard: React.FC = () => {
 
     const threshold = period === 'today' ? now - day : (period === '7days' ? now - 7 * day : now - 30 * day);
     const filteredOrders = processedOrders.filter(o => period === 'all' || o.orderTime > threshold);
-    const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
+    const filteredSessions = (sessions || []).filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
 
-    // Считаем географию, чтобы не было ошибки "geoStats is not defined"
-    const geo = {};
+    const geoStats = {};
     filteredSessions.forEach(s => {
       const city = getVal(s, 'city') || 'Не определен';
-      geo[city] = (geo[city] || 0) + 1;
+      geoStats[city] = (geoStats[city] || 0) + 1;
     });
 
     return {
@@ -155,15 +154,16 @@ const AdminDashboard: React.FC = () => {
         ordersCount: filteredOrders.length,
         sessionsCount: filteredSessions.length,
         revenue: filteredOrders.filter(o => o.isPaid).reduce((sum, o) => sum + Number(o.dPrice), 0),
-        geo: Object.entries(geo).sort((a,b) => b[1] - a[1]).slice(0, 10)
+        geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
       }
     };
   }, [orders, sessions, period]);
 
   const displayList = useMemo(() => {
-    return activeTab === 'active' 
-      ? processed.filter(o => !o.isFailed || o.isPaid)
-      : processed.filter(o => o.isFailed && !o.isPaid);
+    return (processed || []).filter(o => {
+      if (activeTab === 'active') return !o.isFailed || o.isPaid;
+      return o.isFailed && !o.isPaid;
+    });
   }, [processed, activeTab]);
 
   return (
