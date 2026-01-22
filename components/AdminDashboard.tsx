@@ -120,7 +120,6 @@ const AdminDashboard: React.FC = () => {
       const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
       const psRaw = String(getVal(o, 'PaymentStatus') || '').toLowerCase().trim();
       
-      // Используем parseSafeDate, чтобы статистика не ломалась
       const orderTime = parseSafeDate(getVal(o, 'date') || getVal(o, 'timestamp'));
       const isExpired = (now - orderTime) > tenMin;
 
@@ -131,7 +130,13 @@ const AdminDashboard: React.FC = () => {
         ...o, 
         isPaid, 
         isFailed,
-        orderTime // Сохраняем дату для статистики
+        orderTime,
+        pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
+        pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание' : 'Новый')),
+        dTitle: getVal(o, 'title') || 'Заказ',
+        dPrice: getVal(o, 'price') || 0,
+        dName: getVal(o, 'name') || 'Гость',
+        dDate: getVal(o, 'date') || '---'
       };
     });
 
@@ -142,10 +147,11 @@ const AdminDashboard: React.FC = () => {
     const filteredSessions = sessions.filter(s => period === 'all' || parseSafeDate(getVal(s, 'date')) > threshold);
 
     return {
-      processed: processedOrders, // Это пойдет в список заказов
+      processed: processedOrders,
       filteredStats: {
         ordersCount: filteredOrders.length,
-        sessionsCount: filteredSessions.length
+        sessionsCount: filteredSessions.length,
+        revenue: filteredOrders.filter(o => o.isPaid).reduce((sum, o) => sum + Number(o.dPrice), 0)
       }
     };
   }, [orders, sessions, period]);
@@ -156,41 +162,6 @@ const AdminDashboard: React.FC = () => {
       geoStats[key] = (geoStats[key] || 0) + 1;
     });
 
-   const processed = filteredOrders.map(o => {
-  const sRaw = String(getVal(o, 'status') || '').toLowerCase().trim();
-  
-  // 1. Считаем время заказа
-  const orderTime = new Date(getVal(o, 'date') || getVal(o, 'timestamp')).getTime();
-  const now = Date.now();
-  const isExpired = (now - orderTime) > (10 * 60 * 1000); // прошло ли 10 минут
-
-  // 2. Условия оплаты и отмены
-  const isPaid = sRaw.includes('оплат') || sRaw.includes('paid') || sRaw.includes('success');
-  
-  // Продвинутая логика: заказ считается Failed, если он отменен ИЛИ если прошло 10 минут без оплаты
-  const isFailed = /(отмен|архив|fail|отказ|истек|not|unpaid|нет)/i.test(sRaw) || (isExpired && !isPaid);
-
-  return {
-    ...o,
-    isPaid,
-    isFailed,
-    pStatus: isPaid ? 'paid' : (isFailed ? 'failed' : 'pending'),
-    pLabel: isPaid ? 'Оплачено' : (isFailed ? 'Архив' : (sRaw.includes('ожид') ? 'Ожидание оплаты' : 'Новый')),
-    dTitle: getVal(o, 'title') || 'Заказ',
-    dPrice: getVal(o, 'price') || 0,
-    dName: getVal(o, 'name') || 'Гость',
-    dUser: getVal(o, 'username') || '',
-    dDate: getVal(o, 'date') || '---'
-  };
-});
-
-    return {
-      visits: Object.keys(sessionMap).length,
-      paidCount: processed.filter(o => o.pStatus === 'paid').length,
-      allOrders: processed,
-      geo: Object.entries(geoStats).sort((a,b) => b[1] - a[1]).slice(0, 10)
-    };
-  }, [sessions, orders, period]);
 
   const displayList = useMemo(() => {
     const list = activeTab === 'active' 
