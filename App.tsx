@@ -163,37 +163,36 @@ class AnalyticsService {
   
   async logOrder(orderData: any) {
     try {
-      // 1. Сразу отправляем сообщение о НОВОМ заказе (как сейчас)
-      const message = `🛍 **НОВЫЙ ЗАКАЗ**\n📦 Товар: ${orderData.productTitle}\n💰 Сумма: ${orderData.price} ₽\n👤 Клиент: ${orderData.customerName}\n🆔 ID: ${orderData.tg_id}`;
+      // 1. Сообщение в ТГ о новом заказе
+      const msg = `🛍 **НОВЫЙ ЗАКАЗ**\n📦 ${orderData.productTitle}\n💰 ${orderData.price}₽\n👤 ${orderData.customerName}\n🆔 ID: ${orderData.tg_id}\n🔗 @${orderData.username}`;
       
-      await this.sendToTelegram(message);
+      await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: this.config.chatId, text: msg, parse_mode: 'Markdown' })
+      });
 
-      // 2. Логируем в Гугл-таблицу
+      // 2. Запись в таблицу
       await fetch(this.config.googleSheetWebhook, {
         method: 'POST',
         mode: 'no-cors',
         body: JSON.stringify({ action: 'logOrder', ...orderData })
       });
 
-      // 3. ЗАПУСКАЕМ ТАЙМЕР НА 10 МИНУТ
+      // 3. ТАЙМЕР: через 10 минут прислать отмену
       setTimeout(async () => {
-        // Проверяем, не оплачен ли заказ за это время (упрощенно)
-        // Если оплаты всё еще нет, шлем уведомление об отмене
-        const cancelMessage = `❌ **ЗАКАЗ ОТМЕНЕН (10 мин истекли)**\n📦 Товар: ${orderData.productTitle}\n👤 Клиент: ${orderData.customerName}\n💰 Сумма: ${orderData.price} ₽\n🆔 ID: ${orderData.tg_id}`;
+        const cancelMsg = `❌ **ЗАКАЗ ОТМЕНЕН**\n(Оплата не поступила за 10 мин)\n📦 ${orderData.productTitle}\n👤 ${orderData.customerName}\n💰 ${orderData.price}₽`;
         
-        await this.sendToTelegram(cancelMessage);
-        
-        // Опционально: можно отправить запрос в Гугл, чтобы статус в таблице сменился на 'отмена'
-        fetch(this.config.googleSheetWebhook, {
+        await fetch(`https://api.telegram.org/bot${this.config.botToken}/sendMessage`, {
           method: 'POST',
-          mode: 'no-cors',
-          body: JSON.stringify({ action: 'updateStatus', orderId: orderData.id, status: 'отмена' })
-        }).catch(() => {});
-        
-      }, 10 * 60 * 1000); // 10 минут
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: this.config.chatId, text: cancelMsg, parse_mode: 'Markdown' })
+        });
+      }, 10 * 60 * 1000);
 
-      return { id: Date.now() };
+      return { id: orderData.id || Date.now() };
     } catch (e) {
+      console.error('Error logging order:', e);
       return { id: Date.now() };
     }
   }
