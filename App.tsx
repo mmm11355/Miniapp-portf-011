@@ -686,19 +686,67 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[9999] bg-white flex flex-col page-transition mx-auto max-w-md"><div className="p-4 flex items-center justify-between border-b bg-white/90 backdrop-blur-md sticky top-0"><span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] pr-4">ОПЛАТА ЗАКАЗА</span><button onClick={() => setPaymentIframeUrl(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={24} /></button></div><div className="flex-grow w-full h-full overflow-hidden bg-slate-50"><iframe src={paymentIframeUrl} className="w-full h-full border-none" title="Payment Frame" allow="payment" /></div>
         </div>
       )}
-      {view === 'contact' && (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6 page-transition"><div className="w-20 h-20 bg-white rounded-full shadow-xl flex items-center justify-center border border-slate-50"><MessageCircle size={32} className="text-indigo-500" /></div>
-          <div className="space-y-1"><h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">СВЯЗАТЬСЯ СО МНОЙ</h2><p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">ОТВЕТ В ТЕЧЕНИЕ ПАРУ ЧАСОВ</p></div><button onClick={() => window.open('https://t.me/Olga_lav', '_blank')} className="w-full max-w-[280px] bg-indigo-600 text-white p-6 rounded-2xl flex items-center justify-between shadow-xl active:scale-95 transition-all">
-            <div className="flex flex-col items-start"><span className="text-[14px] font-black uppercase">Написать в TG</span><span className="text-[10px] font-bold opacity-70">Прямая связь со мной</span></div>
-            <Send size={20} /></button></div>
-      )}
-      {view === 'admin' && (
-        isAdminAuthenticated ? (<AdminDashboard />) : (
-          <div className="py-20 text-center space-y-6 page-transition px-5"><div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm border border-slate-50"><Lock size={24} className="text-slate-300" /></div>
-            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Доступ ограничен</h2><div className="space-y-3 max-w-[240px] mx-auto"><input type="password" placeholder="••••••••" className="w-full p-4 bg-white border border-slate-100 rounded-2xl text-center font-bold tracking-widest outline-none focus:border-indigo-500 transition-all" value={password} onChange={e => setPassword(e.target.value)} />
-              <button onClick={() => password === ADMIN_PASSWORD && setIsAdminAuthenticated(true)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Войти</button>
-            </div></div>)
-      )}
+
+      
+    {view === 'contact' && (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 page-transition animate-in fade-in duration-500">
+    {/* Иконка в нашем стиле */}
+    <div className="w-20 h-20 bg-white rounded-[10px] shadow-sm flex items-center justify-center border border-slate-100">
+      <MessageCircle size={32} strokeWidth={1.5} className="text-indigo-400" />
+    </div>
+    
+    <div className="space-y-1">
+      <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Связаться со мной</h2>
+      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">Ответ в течение пары часов</p>
+    </div>
+
+    {/* Кнопка — нежная, 10px */}
+    <button 
+      onClick={() => window.open('https://t.me/Olga_lav', '_blank')} 
+      className="w-full max-w-[280px] bg-indigo-500 text-white p-5 rounded-[10px] flex items-center justify-between shadow-md shadow-indigo-100 active:scale-[0.98] transition-all"
+    >
+      <div className="flex flex-col items-start text-left">
+        <span className="text-[14px] font-bold uppercase tracking-tight">Написать в TG</span>
+        <span className="text-[10px] font-medium opacity-80 uppercase tracking-wider">Прямая связь со мной</span>
+      </div>
+      <Send size={20} className="opacity-80" />
+    </button>
+  </div>
+)}
+
+{view === 'admin' && (
+  isAdminAuthenticated ? (<AdminDashboard />) : (
+    <div className="py-20 text-center space-y-6 page-transition px-5 animate-in fade-in duration-500">
+      {/* Иконка замка */}
+      <div className="w-16 h-16 bg-white rounded-[10px] flex items-center justify-center mx-auto shadow-sm border border-slate-100">
+        <Lock size={24} strokeWidth={1.5} className="text-slate-300" />
+      </div>
+      
+      <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Доступ ограничен</h2>
+      
+      <div className="space-y-3 max-w-[240px] mx-auto">
+        {/* Инпут 10px */}
+        <input 
+          type="password" 
+          placeholder="Пароль" 
+          className="w-full p-4 bg-white border border-slate-100 rounded-[10px] text-center font-bold tracking-widest outline-none focus:border-indigo-300 transition-all text-slate-600 placeholder:text-slate-200 shadow-sm" 
+          value={password} 
+          onChange={e => setPassword(e.target.value)} 
+        />
+        
+        {/* Кнопка входа — индиго вместо черного */}
+        <button 
+          onClick={() => password === ADMIN_PASSWORD && setIsAdminAuthenticated(true)} 
+          className="w-full bg-indigo-500 text-white py-4 rounded-[10px] font-bold uppercase text-[10px] tracking-widest shadow-md shadow-indigo-100 active:scale-[0.98] transition-all"
+        >
+          Войти в панель
+        </button>
+      </div>
+    </div>
+  )
+)}
+
+      
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none opacity-20"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{userIdentifier}</span></div>
     
   
