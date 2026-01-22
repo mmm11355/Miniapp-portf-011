@@ -226,7 +226,7 @@ const getDetailedTgUser = () => {
 // --- ТЕПЕРЬ ТВОЙ APP ---
 const App: React.FC = () => {
   // Тут твой WEBHOOK_URL, BOT_TOKEN и остальное...
-  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyw_69J7hbIwrPzWBmv8UL64yYFqyJQZJ-pKfYoHqZGqs1jZ3wjr613VJD_OgDLegzn/exec';
+  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyMTb_XuWZGUM9xfKSBUlUNPbPsCjumWCEA3HN_ny_nwIYaELZeoYKMQnH3o3zNdD9B/exec';
   const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
   const CHAT_ID = '-1002095569247';
 
