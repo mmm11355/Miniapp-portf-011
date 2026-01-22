@@ -11,10 +11,10 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => {
   const navItems = [
-    { id: 'home', label: 'ИНФО', icon: Home },
-    { id: 'portfolio', label: 'КЕЙСЫ', icon: Briefcase },
-    { id: 'shop', label: 'МАГАЗИН', icon: ShoppingBag },
-    { id: 'account', label: 'МОИ', icon: BookOpen }, 
+    { id: 'home', label: 'Главная', icon: Home },
+    { id: 'portfolio', label: 'Бонусы', icon: Briefcase },
+    { id: 'shop', label: 'Магазин', icon: ShoppingBag },
+    { id: 'account', label: 'Профиль', icon: BookOpen }, 
     { id: 'contact', label: 'TG', icon: Send },
   ];
 
@@ -25,7 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate }) => 
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-black text-[12px] shadow-lg shadow-indigo-100">ОА</div>
           <div className="flex flex-col">
              <span className="font-bold text-slate-900 text-[14px] tracking-tight uppercase leading-none">О ГЕТКУРС</span>
-             <span className="font-bold text-indigo-500 text-[9px] tracking-widest uppercase mt-1">И НЕ ТОЛЬКО</span>
+             <span className="font-bold text-indigo-500 text-[12px] tracking-widest uppercase mt-1">И НЕ ТОЛЬКО</span>
           </div>
         </div>
         <button onClick={() => onNavigate('admin')} className={`p-2.5 transition-all rounded-xl ${activeView === 'admin' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}>
