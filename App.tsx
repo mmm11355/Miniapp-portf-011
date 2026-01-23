@@ -110,22 +110,9 @@ return (
            />
         </div>
 
-        <div className="text-[15px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
-  {(product.detailFullDescription || product.description || '').split('```').map((part, index) => {
-    // Каждая нечетная часть (1, 3, 5...) — это код внутри кавычек
-    if (index % 2 === 1) {
-      // Убираем слово css/js из начала, если оно есть
-      const cleanCode = part.replace(/^(css|jsx|js|javascript|html)\n/, '');
-      return (
-        <pre key={index} className="bg-slate-100 p-3 my-3 rounded-lg font-mono text-[13px] border-l-4 border-pink-500 overflow-x-auto text-slate-800">
-          <code>{cleanCode}</code>
-        </pre>
-      );
-    }
-    // Четные части (0, 2, 4...) — это обычный текст
-    return <span key={index}>{part}</span>;
-  })}
-</div>
+        <div className="text-[15px] text-slate-600 leading-relaxed font-medium">
+     {typeof renderContent === 'function' ? renderContent(product.detailFullDescription || product.description) : (product.detailFullDescription || product.description)}
+      </div>
       </div>
 
       {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
