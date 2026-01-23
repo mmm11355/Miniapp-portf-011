@@ -6,7 +6,7 @@ import { INITIAL_PRODUCTS, ADMIN_PASSWORD } from './constants';
 import { analyticsService, getDetailedTgUser } from './services/analyticsService';
 import { Award, Zap, MessageCircle, ArrowRight, Star, Trophy, Globe, BriefcaseIcon, Send, ChevronRight, RefreshCw, CheckCircle, Lock } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
-
+  
 import {
   X, ChevronRight, CheckCircle, ShieldCheck, ShoppingBag, Lock, Ticket, ChevronLeft, MapPin, Trophy, Briefcase as BriefcaseIcon, MessageCircle, Globe, Award, Send, Phone, Mail, BookOpen, MoreVertical, RefreshCw
 } from 'lucide-react';
