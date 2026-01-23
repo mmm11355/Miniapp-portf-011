@@ -334,8 +334,7 @@ const App: React.FC = () => {
       tg_id: user?.id ? String(user.id) : 'guest',
       username: user?.username ? `@${user.username}` : 'No Nickname',
       path: newView,
-      utmSource: utmValues.utmSource, // БЕРЕМ ИЗ ССЫЛКИ
-      utmContent: utmValues.utmContent // ДОБАВЛЯЕМ КОНТЕНТ
+     
     };
 
       fetch(WEBHOOK_URL, {
