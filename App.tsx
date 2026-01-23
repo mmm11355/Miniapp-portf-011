@@ -28,6 +28,35 @@ const Linkify = ({ text }: { text: string }) => {
     </span>
   );
 };
+
+const getUTM = () => {
+  // Ищем метки в обычной ссылке
+  const urlParams = new URLSearchParams(window.location.search);
+  let source = urlParams.get('utm_source');
+  let content = urlParams.get('utm_content');
+
+  // Если не нашли, ищем в секретном параметре Telegram
+  if (!source) {
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
+    if (startParam.includes('utm_source-')) {
+      source = startParam.split('utm_source-')[1]?.split('__')[0];
+    }
+    if (startParam.includes('utm_content-')) {
+      content = startParam.split('utm_content-')[1]?.split('__')[0];
+    }
+  }
+
+  return {
+    utmSource: source || 'direct',
+    utmContent: content || ''
+  };
+};
+
+// Сразу сохраняем метки в переменную
+const utmValues = getUTM();
+
+
+
   
   const renderContent = (text: string) => {
     if (!text) return null;
@@ -233,7 +262,7 @@ const getDetailedTgUser = () => {
 // --- ТЕПЕРЬ ТВОЙ APP ---
 const App: React.FC = () => {
   // Тут твой WEBHOOK_URL, BOT_TOKEN и остальное...
-  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyMTb_XuWZGUM9xfKSBUlUNPbPsCjumWCEA3HN_ny_nwIYaELZeoYKMQnH3o3zNdD9B/exec';
+  const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyvBY6jGi0PjWEk5ZX-8EKo4--bYU5r22ktsBonTZHHVuQrLW4SfM6Fehg1nJ6y-3wf/exec';
   const BOT_TOKEN = '8319068202:AAERCkMtwnWXNGHLSN246DQShyaOHDK6z58';
   const CHAT_ID = '-1002095569247';
 
@@ -326,13 +355,14 @@ const App: React.FC = () => {
       
       // Собираем данные прямо из Телеграма в момент клика
       const payload = {
-        action: 'logSession',
-        type: 'session',
-        tg_id: user?.id ? String(user.id) : 'guest', // Сюда упадет цифра 450553948
-        username: user?.username ? `@${user.username}` : 'No Nickname', // Сюда упадет @Olga_lav
-        path: newView,
-        utmSource: 'telegram_bot'
-      };
+      action: 'logSession',
+      type: 'session',
+      tg_id: user?.id ? String(user.id) : 'guest',
+      username: user?.username ? `@${user.username}` : 'No Nickname',
+      path: newView,
+      utmSource: utmValues.utmSource, // БЕРЕМ ИЗ ССЫЛКИ
+      utmContent: utmValues.utmContent // ДОБАВЛЯЕМ КОНТЕНТ
+    };
 
       fetch(WEBHOOK_URL, {
         method: 'POST',
