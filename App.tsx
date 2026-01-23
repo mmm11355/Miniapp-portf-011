@@ -29,32 +29,6 @@ const Linkify = ({ text }: { text: string }) => {
   );
 };
 
-const getUTM = () => {
-  // Ищем метки в обычной ссылке
-  const urlParams = new URLSearchParams(window.location.search);
-  let source = urlParams.get('utm_source');
-  let content = urlParams.get('utm_content');
-
-  // Если не нашли, ищем в секретном параметре Telegram
-  if (!source) {
-    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
-    if (startParam.includes('utm_source-')) {
-      source = startParam.split('utm_source-')[1]?.split('__')[0];
-    }
-    if (startParam.includes('utm_content-')) {
-      content = startParam.split('utm_content-')[1]?.split('__')[0];
-    }
-  }
-
-  return {
-    utmSource: source || 'direct',
-    utmContent: content || ''
-  };
-};
-
-// Сразу сохраняем метки в переменную
-const utmValues = getUTM();
-
 
 
   
