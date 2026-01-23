@@ -110,9 +110,22 @@ return (
            />
         </div>
 
-        <div className="text-[15px] text-slate-600 leading-relaxed font-medium">
-     {typeof renderContent === 'function' ? renderContent(product.detailFullDescription || product.description) : (product.detailFullDescription || product.description)}
-      </div>
+       <div className="text-[15px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
+  {(() => {
+    const text = product.detailFullDescription || product.description || '';
+    if (!text.includes('```')) return text;
+
+    return text.split('```').map((part, index) => (
+      index % 2 === 1 ? (
+        <pre key={index} className="bg-slate-800 text-pink-300 p-3 my-2 rounded-md font-mono text-sm overflow-x-auto">
+          <code>{part.replace(/^(css|js|html)\n/, '')}</code>
+        </pre>
+      ) : <span key={index}>{part}</span>
+    ));
+  })()}
+</div>
+
+        
       </div>
 
       {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
