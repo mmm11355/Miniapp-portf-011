@@ -9,7 +9,7 @@ import { RefreshCw, Activity, User, ShoppingCart, Eye } from 'lucide-react';
 // A: Дата | B: Имя | C: Email (ник/ID) | D: телефон (source) | E: Товар (page)
 // ============================================================
 
-const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyMTb_XuWZGUM9xfKSBUlUNPbPsCjumWCEA3HN_ny_nwIYaELZeoYKMQnH3o3zNdD9B/exec';
+const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyvBY6jGi0PjWEk5ZX-8EKo4--bYU5r22ktsBonTZHHVuQrLW4SfM6Fehg1nJ6y-3wf/exec';
 
 const AdminDashboard: React.FC = () => {
   // ========================================
@@ -417,6 +417,23 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+{/* ПАНЕЛЬ АНАЛИТИКИ */}
+<div className="grid grid-cols-2 gap-3 mb-6">
+  <div className="bg-indigo-50 p-4 rounded-2xl">
+    <div className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Источник: VC</div>
+    <div className="text-2xl font-black text-indigo-600">
+      {processed.displayLeads.filter(l => String(l.utmSource).includes('vc')).length}
+    </div>
+  </div>
+  <div className="bg-emerald-50 p-4 rounded-2xl">
+    <div className="text-[10px] uppercase font-bold text-emerald-400 mb-1">Всего сессий</div>
+    <div className="text-2xl font-black text-emerald-600">{processed.displayLeads.length}</div>
+  </div>
+</div>
+
+
+
+      
       {/* Orders Section */}
       <div className="px-4">
         <div className="flex items-center justify-between mb-4">
