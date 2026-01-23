@@ -76,7 +76,7 @@ const Linkify = ({ text }: { text: string }) => {
   const hasAccess = userPurchasedIds?.map(String).includes(String(product.id)) || product.isFree === true;
 
  
- return (
+return (
     <div className="fixed inset-0 z-[100] bg-white overflow-y-auto font-sans pb-44">
       {/* ШАПКА СО СТРЕЛКОЙ */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md z-50 px-6 py-4 border-b border-slate-50 flex items-center justify-between">
@@ -86,36 +86,41 @@ const Linkify = ({ text }: { text: string }) => {
           </div>
           <span className="text-[12px] font-bold uppercase tracking-tight">Назад</span>
         </button>
-        <div className="flex items-center gap-2">
-           <div className="w-7 h-7 bg-indigo-500 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold">OA</div>
-           <div className="text-[10px] font-bold uppercase text-slate-400 leading-tight text-right">О ГЕТКУРС <br/><span className="text-[8px] font-medium opacity-70">и не только</span></div>
+        <div className="flex items-center gap-2 text-right">
+           <div className="w-7 h-7 bg-indigo-500 rounded-[6px] flex items-center justify-center text-white text-[10px] font-bold shadow-sm">OA</div>
+           <div className="text-[10px] font-bold uppercase text-slate-400 leading-tight">
+             О ГЕТКУРС <br/>
+             <span className="text-[8px] font-medium opacity-70">и не только</span>
+           </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-8">
+      <div className="max-w-2xl mx-auto px-6 pt-8 text-left">
         <h1 className="text-[18px] font-bold text-slate-800 mb-6 leading-tight uppercase tracking-tight">
           {product.title}
         </h1>
 
         <div className="mb-6">
-           <img src={product.imageUrl} className="w-full aspect-video object-cover rounded-[10px] shadow-sm border border-slate-50" />
+           <img 
+             src={product.imageUrl} 
+             className="w-full aspect-video object-cover rounded-[10px] shadow-sm border border-slate-50" 
+             alt=""
+           />
         </div>
 
         <div className="text-[15px] text-slate-600 leading-relaxed font-medium">
-          {renderContent(product.detailFullDescription || product.description)}
+          {typeof renderContent === 'function' ? renderContent(product.detailFullDescription || product.description) : (product.detailFullDescription || product.description)}
         </div>
       </div>
 
       {/* ФИКСИРОВАННАЯ КНОПКА С ДОСТУПОМ */}
-      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent">
-        <div className="max-w-2xl mx-auto">
+      <div className="fixed bottom-24 left-0 right-0 px-6 py-4 z-[110] bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
+        <div className="max-w-2xl mx-auto pointer-events-auto">
          {hasAccess ? (
             <button 
               onClick={() => {
                 onClose();
-                if (typeof onNavigate === 'function') {
-                  onNavigate('account');
-                }
+                if (typeof onNavigate === 'function') onNavigate('account');
               }}
               style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#7ea6b1' }}
               className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
