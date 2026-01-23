@@ -245,12 +245,17 @@ const App: React.FC = () => {
     googleSheetWebhook: WEBHOOK_URL
   }));
 
-  // 1. Безопасно собираем метки
+  // Умный сбор меток: и из браузера, и из Telegram startapp
   const urlParams = new URLSearchParams(window.location.search);
+  const startAppParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param || '';
+  
+  // Если ссылка через startapp=vc_post, разделяем их
+  const [startSource, startContent] = startAppParam.split('_');
+
   const utmValues = {
-    utmSource: urlParams.get('utm_source') || 'direct',
-    utmContent: urlParams.get('utm_content') || 'none'
-  }; 
+    utmSource: startSource || urlParams.get('utm_source') || 'direct',
+    utmContent: startContent || urlParams.get('utm_content') || 'none'
+  };
   
   // Дальше весь твой код...
   
