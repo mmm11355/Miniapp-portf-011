@@ -29,12 +29,6 @@ const Linkify = ({ text }: { text: string }) => {
   );
 };
 
-// 1. Безопасно собираем метки
-  const urlParams = new URLSearchParams(window.location.search);
-  const utmValues = {
-    utmSource: urlParams.get('utm_source') || 'direct',
-    utmContent: urlParams.get('utm_content') || 'none'
-  };
 
   
   const renderContent = (text: string) => {
@@ -250,6 +244,13 @@ const App: React.FC = () => {
     chatId: CHAT_ID,
     googleSheetWebhook: WEBHOOK_URL
   }));
+
+  // 1. Безопасно собираем метки
+  const urlParams = new URLSearchParams(window.location.search);
+  const utmValues = {
+    utmSource: urlParams.get('utm_source') || 'direct',
+    utmContent: urlParams.get('utm_content') || 'none'
+  }; 
   
   // Дальше весь твой код...
   
