@@ -470,15 +470,24 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-[10px] font-bold text-slate-400">
                     {l.user}
                   </span>
-                  <span 
-                    className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-                      l.isPaid 
-                        ? 'bg-emerald-50 text-emerald-600' 
-                        : 'bg-amber-50 text-amber-600'
-                    }`}
-                  >
-                    {l.isPaid ? '✓ OK' : '⏳ Ждем'}
-                  </span>
+                 <span
+                   
+  className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+    l.isPaid 
+      ? 'bg-emerald-50 text-emerald-600' 
+      : (String(l.PaymentStatus).toLowerCase() === 'отклонен' || String(l.PaymentStatus).toLowerCase() === 'отмена')
+        ? 'bg-rose-50 text-rose-600'
+        : 'bg-amber-50 text-amber-600'
+  }`}
+>
+  {l.isPaid 
+    ? '✓ OK' 
+    : (String(l.PaymentStatus).toLowerCase() === 'отклонен' || String(l.PaymentStatus).toLowerCase() === 'отмена')
+      ? '❌ ОТМЕНА'
+      : '⌛ Ждем'}
+</span>
+
+                  
                 </div>
                 <div className="text-[9px] text-slate-400 font-bold">
                   {formatDate(l.ts)}
