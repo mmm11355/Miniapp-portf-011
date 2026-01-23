@@ -417,20 +417,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-{/* ПАНЕЛЬ АНАЛИТИКИ */}
-<div className="grid grid-cols-2 gap-3 mb-6">
-  <div className="bg-indigo-50 p-4 rounded-2xl">
-    <div className="text-[10px] uppercase font-bold text-indigo-400 mb-1">Источник: VC</div>
-    <div className="text-2xl font-black text-indigo-600">
-      {processed.displayLeads.filter(l => String(l.utmSource).includes('vc')).length}
-    </div>
-  </div>
-  <div className="bg-emerald-50 p-4 rounded-2xl">
-    <div className="text-[10px] uppercase font-bold text-emerald-400 mb-1">Всего сессий</div>
-    <div className="text-2xl font-black text-emerald-600">{processed.displayLeads.length}</div>
-  </div>
-</div>
-
 
 
       
