@@ -56,7 +56,7 @@ const Linkify = ({ text }: { text: string }) => {
             <img 
             src={url} 
             className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:scale-[0.98] transition-transform"
-            onClick={() => setSelectedImage(url)} // Теперь сохраняем ссылку для показа внутри
+            onClick={() => window.open(url, '_blank')} // Теперь сохраняем ссылку для показа внутри
           />
           </div>
         );
