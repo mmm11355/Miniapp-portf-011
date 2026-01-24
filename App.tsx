@@ -924,7 +924,7 @@ const [selectedImage, setSelectedImage] = useState<string | null>(null);
     
     </Layout>
 
-  </Layout>
+
 
         {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
         {selectedImage && (
