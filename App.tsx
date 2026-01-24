@@ -300,7 +300,7 @@ const App: React.FC = () => {
     googleSheetWebhook: WEBHOOK_URL
   }));
 
-
+const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   // Умный сбор меток: и из браузера, и из Telegram startapp
   const urlParams = new URLSearchParams(window.location.search);
