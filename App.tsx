@@ -375,15 +375,15 @@ const App: React.FC = () => {
     // ДОБАВИЛИ WEBHOOK_URL В ЗАВИСИМОСТИ НИЖЕ
   }, [userIdentifier, WEBHOOK_URL]);
 
- // 5. НАВИГАЦИЯ + СТАТИСТИКА (ИСПРАВЛЕННЫЙ ВАРИАНТ)
+ // 5. НАВИГАЦИЯ + СТАТИСТИКА
   const handleNavigate = useCallback((newView, product = null) => {
     setView(newView);
     
-    // 1. Это действие ОБЯЗАТЕЛЬНО для всех: открывает лонгрид и в бонусах, и в магазине
+    // 1. ОТКРЫТИЕ КАРТОЧКИ (Бонус или Магазин)
     if (product) {
       setActiveDetailProduct(product);
       
-      // 2. А это только для статистики бонусов (не мешает открытию)
+      // Лог для бонусов
       if (product.section === 'bonus' || product.category === 'bonus') {
         fetch(WEBHOOK_URL, {
           method: 'POST',
@@ -402,39 +402,33 @@ const App: React.FC = () => {
     } else {
       setActiveDetailProduct(null);
     }
-    
-    setCheckoutProduct(null);
-    window.scrollTo(0, 0);
-  }, [WEBHOOK_URL]);
-  
-    setCheckoutProduct(null);
-    
+
+    // 2. ОБЩАЯ СТАТИСТИКА СЕССИИ (UTM данные)
     if (WEBHOOK_URL) {
       const tg = (window as any).Telegram?.WebApp;
       const user = tg?.initDataUnsafe?.user;
       
-      // Собираем данные прямо из Телеграма в момент клика
       const payload = {
-      action: 'logSession',
-      type: 'session',
-      tg_id: user?.id ? String(user.id) : 'guest',
-      username: user?.username ? `@${user.username}` : 'No Nickname',
-      path: newView,
-      utmSource: utmValues.utmSource, // ДОБАВИЛИ ОБРАТНО
-      utmContent: utmValues.utmContent  // ДОБАВИЛИ ОБРАТНО
-    };
+        action: 'logSession',
+        type: 'session',
+        tg_id: user?.id ? String(user.id) : 'guest',
+        username: user?.username ? `@${user.username}` : 'No Nickname',
+        path: newView,
+        utmSource: utmValues.utmSource || 'direct', 
+        utmContent: utmValues.utmContent || ''
+      };
 
       fetch(WEBHOOK_URL, {
         method: 'POST',
-        mode: 'no-cors', 
-        cache: 'no-cache',
-        headers: { 'Content-Type': 'application/json' },
+        mode: 'no-cors',
         body: JSON.stringify(payload)
       }).catch(e => console.error("Ошибка статистики:", e));
     }
 
+    setCheckoutProduct(null);
     window.scrollTo(0, 0);
-  }, [WEBHOOK_URL]);
+  }, [WEBHOOK_URL, utmValues]); // Теперь всё закрывается один раз
+  
 
   // 6. ЗАПУСК ПРИ ОТКРЫТИИ
   useLayoutEffect(() => {
