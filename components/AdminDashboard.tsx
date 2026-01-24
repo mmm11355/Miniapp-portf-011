@@ -9,7 +9,7 @@ import { RefreshCw, Activity, User, ShoppingCart, Eye } from 'lucide-react';
 // A: Дата | B: Имя | C: Email (ник/ID) | D: телефон (source) | E: Товар (page)
 // ============================================================
 
-const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyvBY6jGi0PjWEk5ZX-8EKo4--bYU5r22ktsBonTZHHVuQrLW4SfM6Fehg1nJ6y-3wf/exec';
+const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyN5GFa7NEyvjz1A0svFj8iqt7WyMaJOEffpkMmfgkf-PlfVOuFn74bsddhee2V_aS_/exec';
 
 const AdminDashboard: React.FC = () => {
   // ========================================
