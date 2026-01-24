@@ -167,22 +167,29 @@ return (
     }
     // В остальных случаях (платные товары) - на оплату
    else {
-        // Записываем переход к оплате для догонялки
-        fetch(WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: JSON.stringify({
-            action: 'logEvent',
-            type: 'event',
-            userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
-            username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
-            eventName: 'Переход к оплате',
-            itemTitle: product.title,
-            category: 'shop'
-          }),
-        });
+        // Пробуем отправить статистику (страховка)
+        try {
+          fetch(WEBHOOK_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({
+              action: 'logEvent',
+              type: 'event',
+              userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
+              username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
+              eventName: 'Переход к оплате',
+              itemTitle: product.title,
+              category: 'shop'
+            }),
+          });
+        } catch (e) {
+          console.error("Ошибка аналитики, но продолжаем покупку...");
+        }
+
+        // ГЛАВНОЕ: Эта строка теперь сработает при любом раскладе!
         onCheckout(product);
       }
+    
   }}
   style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
   className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
