@@ -117,7 +117,7 @@ return (
 
     return text.split('```').map((part, index) => (
       index % 2 === 1 ? (
-        <pre key={index} className="bg-slate-800 text-pink-300 p-3 my-2 rounded-md font-mono text-sm overflow-x-auto">
+        <pre key={index} className="bg-gray-100 p-4 my-4 rounded-lg font-mono text-[12px] border border-gray-200 overflow-x-auto whitespace-pre text-slate-700 leading-relaxed">
           <code>{part.replace(/^(css|js|html)\n/, '')}</code>
         </pre>
       ) : <span key={index}>{part}</span>
