@@ -144,17 +144,27 @@ return (
               ОТКРЫТЬ В КАБИНЕТЕ
             </button>
           ) : (
-            <button 
-              onClick={() => {
-                if (product.externalLink && product.section !== 'shop') window.open(product.externalLink, '_blank');
-                else onCheckout(product);
-              }}
-              style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }} 
-              className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
-            >
-              {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'} 
-              {product.price && !isNaN(product.price) ? ` — ${product.price} ₽` : ''}
-            </button>
+            <button
+  onClick={() => {
+    // Если есть внешняя ссылка - переходим по ней
+    if (product.externalLink && product.section !== 'shop') {
+      window.open(product.externalLink, '_blank');
+    } 
+    // НОВОЕ: Если цены нет или она 0 - просто закрываем бонус
+    else if (!product.price || product.price === 0 || product.price === '0') {
+      onClose(); 
+    }
+    // В остальных случаях (платные товары) - на оплату
+    else {
+      onCheckout(product);
+    }
+  }}
+  style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
+  className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
+>
+  {product.detailButtonText || product.buttonText || 'ПОДРОБНЕЕ'}
+  {product.price && !isNaN(product.price) && product.price !== 0 ? ` — ${product.price} ₽` : ''}
+</button>
           )}
         </div>
       </div>
