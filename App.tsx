@@ -917,30 +917,12 @@ const [selectedImage, setSelectedImage] = useState<string | null>(null);
       >
     {/* ... ваш текущий код кнопок ... */}
     Вернуться в кабинет
-          </button>
-        </div>
-      </div>
-    )}
-
-    {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
-    {selectedImage && (
-      <div 
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 touch-none"
-        onClick={() => setSelectedImage(null)}
-      >
-        <img 
-          src={selectedImage} 
-          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-          onClick={(e) => e.stopPropagation()} 
-        />
-        <button 
-          className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white text-3xl transition-colors"
-          onClick={() => setSelectedImage(null)}
-        >
-          ✕
-        </button>
-      </div>
-    )}
+      </button>
+    </div>
+  </div>
+)}
+  
+    
     </Layout>
   );
 };
