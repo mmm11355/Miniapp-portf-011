@@ -166,9 +166,23 @@ return (
       onClose(); 
     }
     // В остальных случаях (платные товары) - на оплату
-    else {
-      onCheckout(product);
-    }
+   else {
+        // Записываем переход к оплате для догонялки
+        fetch(WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify({
+            action: 'logEvent',
+            type: 'event',
+            userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
+            username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
+            eventName: 'Переход к оплате',
+            itemTitle: product.title,
+            category: 'shop'
+          }),
+        });
+        onCheckout(product);
+      }
   }}
   style={{ backgroundColor: product.detailButtonColor || product.buttonColor || '#4f46e5' }}
   className="w-full py-5 rounded-[10px] text-white font-bold text-[13px] uppercase tracking-wider shadow-xl active:scale-[0.97] transition-all"
@@ -365,6 +379,25 @@ const App: React.FC = () => {
   const handleNavigate = useCallback((newView: string, product: any = null) => {
     setView(newView);
     if (product) setActiveDetailProduct(product);
+
+// Собираем данные об открытии бонуса
+    if (product && (product.section === 'bonus' || product.category === 'bonus')) {
+      fetch(WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({
+          action: 'logEvent',
+          type: 'event',
+          userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
+          username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
+          eventName: 'Открыл бонус',
+          itemTitle: product.title,
+          category: 'bonus'
+        }),
+      });
+    }
+
+      
     else setActiveDetailProduct(null);
     setCheckoutProduct(null);
     
