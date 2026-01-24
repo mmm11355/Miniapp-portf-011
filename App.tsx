@@ -924,27 +924,29 @@ const [selectedImage, setSelectedImage] = useState<string | null>(null);
     
     </Layout>
 
-    {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
-      {selectedImage && (
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedImage(null)} // Закрыть при клике на фон
-        >
-          <img 
-            src={selectedImage} 
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()} // Чтобы не закрывалось при клике на саму картинку
-          />
-          <button 
-            className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white text-3xl transition-colors"
+  </Layout>
+
+        {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
+        {selectedImage && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 touch-none"
             onClick={() => setSelectedImage(null)}
           >
-            ✕
-          </button>
-        </div>
-      )}
-  
-  );
+            <img 
+              src={selectedImage} 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()} 
+            />
+            <button 
+              className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 backdrop-blur-md rounded-full text-white text-3xl"
+              onClick={() => setSelectedImage(null)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div> // Если у вас в начале return стоит <div>, то тут он закрывается
+    ); 
 };
 
 export default App;
