@@ -916,14 +916,11 @@ const App: React.FC = () => {
         className="w-full py-4 bg-slate-100 text-slate-500 rounded-[10px] font-bold uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
       >
     {/* ... ваш текущий код кнопок ... */}
-     Вернуться в кабинет
-      </button>
-    </div>
-  </div>
-)}
-  
-    
-    </Layout>
+    Вернуться в кабинет
+        </button>
+      </div>
+    )}
+  </Layout>
   );
 };
 
