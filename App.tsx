@@ -375,30 +375,38 @@ const App: React.FC = () => {
     // ДОБАВИЛИ WEBHOOK_URL В ЗАВИСИМОСТИ НИЖЕ
   }, [userIdentifier, WEBHOOK_URL]);
 
-  // 5. НАВИГАЦИЯ + СТАТИСТИКА (ИСПРАВЛЕННЫЙ ВАРИАНТ)
-  const handleNavigate = useCallback((newView: string, product: any = null) => {
+ // 5. НАВИГАЦИЯ + СТАТИСТИКА (ИСПРАВЛЕННЫЙ ВАРИАНТ)
+  const handleNavigate = useCallback((newView, product = null) => {
     setView(newView);
-    if (product) setActiveDetailProduct(product);
-
-// Собираем данные об открытии бонуса
-    if (product && (product.section === 'bonus' || product.category === 'bonus')) {
-      fetch(WEBHOOK_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify({
-          action: 'logEvent',
-          type: 'event',
-          userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
-          username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
-          eventName: 'Открыл бонус',
-          itemTitle: product.title,
-          category: 'bonus'
-        }),
-      });
-    }
-
+    
+    // 1. Это действие ОБЯЗАТЕЛЬНО для всех: открывает лонгрид и в бонусах, и в магазине
+    if (product) {
+      setActiveDetailProduct(product);
       
-    else setActiveDetailProduct(null);
+      // 2. А это только для статистики бонусов (не мешает открытию)
+      if (product.section === 'bonus' || product.category === 'bonus') {
+        fetch(WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify({
+            action: 'logEvent',
+            type: 'event',
+            userId: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest',
+            username: (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
+            eventName: 'Открыл бонус',
+            itemTitle: product.title,
+            category: 'bonus'
+          }),
+        });
+      }
+    } else {
+      setActiveDetailProduct(null);
+    }
+    
+    setCheckoutProduct(null);
+    window.scrollTo(0, 0);
+  }, [WEBHOOK_URL]);
+  
     setCheckoutProduct(null);
     
     if (WEBHOOK_URL) {
