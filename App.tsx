@@ -916,14 +916,35 @@ const [selectedImage, setSelectedImage] = useState<string | null>(null);
         className="w-full py-4 bg-slate-100 text-slate-500 rounded-[10px] font-bold uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
       >
     {/* ... ваш текущий код кнопок ... */}
-    Вернуться в кабинет
-      </button>
+   Вернуться в кабинет
+        </button>
+      </div>
     </div>
-  </div>
-)}
-  
-    
-    </Layout>
+  )}
+
+  {/* ОКНО ПРОСМОТРА ФОТО */}
+  {selectedImage && (
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
+      onClick={() => setSelectedImage(null)}
+    >
+      <div className="relative max-w-full max-h-full">
+        <img 
+          src={selectedImage} 
+          className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+          onClick={(e) => e.stopPropagation()} 
+        />
+        <button 
+          className="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full text-white text-2xl"
+          onClick={() => setSelectedImage(null)}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )}
+
+  </Layout>
   );
 };
 
