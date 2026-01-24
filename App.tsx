@@ -916,33 +916,32 @@ const [selectedImage, setSelectedImage] = useState<string | null>(null);
         className="w-full py-4 bg-slate-100 text-slate-500 rounded-[10px] font-bold uppercase text-[10px] tracking-widest active:scale-[0.98] transition-all"
       >
     {/* ... ваш текущий код кнопок ... */}
-     Вернуться в кабинет
-        </button>
+    Вернуться в кабинет
+          </button>
+        </div>
       </div>
-    </div>
-  )}
+    )}
 
-  {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
-  {selectedImage && (
-    <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 touch-none"
-      onClick={() => setSelectedImage(null)}
-    >
-      <img 
-        src={selectedImage} 
-        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-        onClick={(e) => e.stopPropagation()} 
-      />
-      <button 
-        className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white text-3xl transition-colors"
+    {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
+    {selectedImage && (
+      <div 
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 touch-none"
         onClick={() => setSelectedImage(null)}
       >
-        ✕
-      </button>
-    </div>
-  )}
-
-  </Layout>
+        <img 
+          src={selectedImage} 
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+          onClick={(e) => e.stopPropagation()} 
+        />
+        <button 
+          className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white text-3xl transition-colors"
+          onClick={() => setSelectedImage(null)}
+        >
+          ✕
+        </button>
+      </div>
+    )}
+    </Layout>
   );
 };
 
