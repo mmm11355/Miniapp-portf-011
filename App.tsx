@@ -54,10 +54,10 @@ const Linkify = ({ text }: { text: string }) => {
         return (
           <div key={index} className="my-4">
             <img 
-              src={url} 
-              className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:opacity-90" 
-              onClick={() => window.open(url, '_blank')}
-            />
+            src={url} 
+            className="w-full rounded-[10px] shadow-sm cursor-zoom-in active:scale-[0.98] transition-transform"
+            onClick={() => setSelectedImage(url)} // Теперь сохраняем ссылку для показа внутри
+          />
           </div>
         );
       }
@@ -300,6 +300,8 @@ const App: React.FC = () => {
     googleSheetWebhook: WEBHOOK_URL
   }));
 
+const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
   // Умный сбор меток: и из браузера, и из Telegram startapp
   const urlParams = new URLSearchParams(window.location.search);
   const startAppParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param || '';
@@ -921,6 +923,27 @@ const App: React.FC = () => {
   
     
     </Layout>
+
+    {/* КРАСИВОЕ ОКНО ПРОСМОТРА ФОТО */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedImage(null)} // Закрыть при клике на фон
+        >
+          <img 
+            src={selectedImage} 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()} // Чтобы не закрывалось при клике на саму картинку
+          />
+          <button 
+            className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white text-3xl transition-colors"
+            onClick={() => setSelectedImage(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+  
   );
 };
 
