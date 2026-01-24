@@ -111,18 +111,29 @@ return (
         </div>
 
        <div className="text-[15px] text-slate-600 leading-relaxed font-medium whitespace-pre-wrap">
-  {(() => {
-    const text = product.detailFullDescription || product.description || '';
-    if (!text.includes('```')) return text;
+ {(() => {
+  const text = product.detailFullDescription || product.description || '';
+  
+  // 1. Если кавычек вообще нет — выводим всё через стандартный рендер (для видео/фото)
+  if (!text.includes('```')) {
+    return typeof renderContent === 'function' ? renderContent(text) : text;
+  }
 
-    return text.split('```').map((part, index) => (
-      index % 2 === 1 ? (
-        <pre key={index} className="bg-gray-100 p-4 my-4 rounded-lg font-mono text-[12px] border border-gray-200 overflow-x-auto whitespace-pre text-slate-700 leading-relaxed">
-          <code>{part.replace(/^(css|js|html)\n/, '')}</code>
+  // 2. Если есть кавычки — аккуратно режем
+  return text.split('```').map((part, index) => {
+    // Каждая нечетная часть (1, 3...) — это блок кода
+    if (index % 2 === 1) {
+      const cleanCode = part.replace(/^(css|js|jsx|html)\n?/, '');
+      return (
+        <pre key={index} className="bg-gray-100 p-4 my-4 rounded-lg font-mono text-[12px] border border-gray-200 overflow-x-auto text-slate-700 leading-relaxed">
+          <code>{cleanCode}</code>
         </pre>
-      ) : <span key={index}>{part}</span>
-    ));
-  })()}
+      );
+    }
+    // Четные части (0, 2...) — это обычный текст, прогоняем его через видео-рендер
+    return typeof renderContent === 'function' ? renderContent(part) : <span key={index}>{part}</span>;
+  });
+})()}
 </div>
 
         
