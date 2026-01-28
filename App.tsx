@@ -393,22 +393,22 @@ const App: React.FC = () => {
       setActiveDetailProduct(product);
 
       
-      // Специальный лог для конкретного товара
-if (product && product.title) {
-  fetch(WEBHOOK_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    body: JSON.stringify({
-      action: 'logSession',
-      type: 'session',
-      tg_id: String(user?.id || 'guest'),
-      username: user?.username ? `@${user.username}` : 'No Nickname',
-      path: 'shop_item_view', // пометим, что это именно просмотр товара
-      itemTitle: product.title, // Название товара
-      utmSource: utmValues.utmSource || 'direct'
-    }),
-  });
-}
+     // Лог клика по конкретному товару
+  if (view === 'shop' && p && p.title) { 
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({
+        action: 'logSession',
+        type: 'session',
+        tg_id: String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'guest'),
+        username: window.Telegram?.WebApp?.initDataUnsafe?.user?.username || 'No Nickname',
+        path: 'shop_item_click', 
+        itemTitle: p.title, // ИСПОЛЬЗУЕМ 'p', а не 'product'
+        utmSource: 'direct'
+      }),
+    });
+  }
 
       
       // Лог для бонусов
