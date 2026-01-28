@@ -423,7 +423,7 @@ const App: React.FC = () => {
         tg_id: user?.id ? String(user.id) : 'guest',
         username: user?.username ? `@${user.username}` : 'No Nickname',
         path: newView,
-        itemTitle: product?.title || '', // ДОБАВЬТЕ ЭТУ СТРОКУ!
+        itemTitle: window.location.hash.includes('product') ? (product?.title || 'Загрузка товара...') : '',
         utmSource: utmValues.utmSource || 'direct', 
         utmContent: utmValues.utmContent || ''
       };
