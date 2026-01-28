@@ -442,7 +442,7 @@ if (product && product.title) {
         tg_id: user?.id ? String(user.id) : 'guest',
         username: user?.username ? `@${user.username}` : 'No Nickname',
         path: newView,
-        itemTitle: window.location.hash.includes('product') ? (product?.title || 'Загрузка товара...') : '',
+        itemTitle: product?.title || (newView === 'shop' ? 'Витрина магазина' : ''),
         utmSource: utmValues.utmSource || 'direct', 
         utmContent: utmValues.utmContent || ''
       };
