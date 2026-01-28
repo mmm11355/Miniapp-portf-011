@@ -391,6 +391,25 @@ const App: React.FC = () => {
     // 1. ОТКРЫТИЕ КАРТОЧКИ (Бонус или Магазин)
     if (product) {
       setActiveDetailProduct(product);
+
+      
+      // Специальный лог для конкретного товара
+if (product && product.title) {
+  fetch(WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({
+      action: 'logSession',
+      type: 'session',
+      tg_id: String(user?.id || 'guest'),
+      username: user?.username ? `@${user.username}` : 'No Nickname',
+      path: 'shop_item_view', // пометим, что это именно просмотр товара
+      itemTitle: product.title, // Название товара
+      utmSource: utmValues.utmSource || 'direct'
+    }),
+  });
+}
+
       
       // Лог для бонусов
       if (product.section === 'bonus' || product.category === 'bonus') {
