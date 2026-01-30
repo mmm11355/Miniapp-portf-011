@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Activity, User, ShoppingCart, Eye } from 'lucide-react';
-
+ 
 // ============================================================
 // НАСТРОЙКИ
 // ============================================================
